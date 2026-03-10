@@ -1,0 +1,72 @@
+# CI pipeline for Industrial Weighing Dashboard (Electron + React + TypeScript)
+# Runs on push and pull_request. Validates build, lint, and tests when balance-dashboard exists.
+
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  dashboard:
+    name: Build & Test Dashboard
+    runs-on: windows-latest
+    # Only run when the Electron dashboard has been scaffolded (Phase 1)
+    if: hashFiles('balance-dashboard/package.json') != ''
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: balance-dashboard/package-lock.json
+
+      - name: Install dependencies
+        working-directory: balance-dashboard
+        run: npm ci
+
+      - name: Lint
+        working-directory: balance-dashboard
+        run: npm run lint
+
+      - name: Build
+        working-directory: balance-dashboard
+        run: npm run build
+
+      - name: Test
+        working-directory: balance-dashboard
+        run: npm run test
+
+  # Optional: validate config files at repo root (always runs)
+  validate-config:
+    name: Validate config files
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check balances.ini exists
+        run: |
+          if (-not (Test-Path "balances.ini")) {
+            Write-Error "balances.ini not found at repository root"
+            exit 1
+          }
+          Write-Host "balances.ini found"
+
+      - name: Check install.bat exists
+        run: |
+          if (-not (Test-Path "install.bat")) {
+            Write-Error "install.bat not found at repository root"
+            exit 1
+          }
+          Write-Host "install.bat found"
