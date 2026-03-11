@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import os from 'node:os'
 import ini from 'ini'
+import { sudoExec } from './sudoExec'
 
 export type IniReadResult = {
   path: string
@@ -74,11 +76,22 @@ export async function writeIniConfig(
 
     const serialized = ini.stringify(mergedData as Record<string, unknown>)
     const dir = path.dirname(configPath)
-    const base = path.basename(configPath)
-    const tmp = path.join(dir, `${base}.tmp`)
-    await fs.mkdir(dir, { recursive: true })
+    await fs.mkdir(dir, { recursive: true }).catch(() => {})
+    
+    // Write tmp to os.tmpdir() to avoid EPERM when writing as standard user
+    const tmp = path.join(os.tmpdir(), `balance_ini_${Date.now()}.tmp`)
     await fs.writeFile(tmp, serialized, 'utf8')
-    await fs.rename(tmp, configPath)
+    try {
+      await fs.rename(tmp, configPath)
+    } catch (e: unknown) {
+      const err = e as { code?: string }
+      if (err?.code === 'EPERM' || err?.code === 'EACCES' || err?.code === 'EXDEV') {
+        const cmd = `move /y "${path.normalize(tmp)}" "${path.normalize(configPath)}"`
+        await sudoExec(cmd)
+      } else {
+        throw e
+      }
+    }
     return { success: true }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : String(e) }

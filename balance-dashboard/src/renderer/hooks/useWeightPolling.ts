@@ -25,7 +25,12 @@ export function useWeightPolling(intervalMs = 1000) {
             setError('Format de données invalide')
           }
         } else {
-          setError((res.body as Record<string, unknown>)?.['message'] as string || `Erreur API: ${res.status}`)
+          const errMsg = (res.body as Record<string, unknown>)?.['message'] as string || `Erreur API: ${res.status}`
+          if (errMsg.toLowerCase().includes('aborted') || errMsg.toLowerCase().includes('timeout') || errMsg.toLowerCase().includes('déconnect')) {
+            setError('En attente de la balance (Inactif)...')
+          } else {
+            setError(errMsg)
+          }
         }
       } catch (err) {
         if (!isActive) return

@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { execFileAsync } from './exec'
+import { sudoExec } from './sudoExec'
 
 export type ServiceState = 'running' | 'stopped' | 'unknown'
 
@@ -51,7 +52,19 @@ export async function startService(serviceName?: string): Promise<{ success: boo
   if (!name) return { success: false, error: 'Service not found' }
 
   const res = await execFileAsync('sc.exe', ['start', name], { timeoutMs: 20_000 })
-  if (res.exitCode !== 0) return { success: false, name, error: (res.stderr || res.stdout).trim() || 'Failed to start service' }
+  if (res.exitCode !== 0) {
+    const errText = String(res.stderr || res.stdout || '').toLowerCase()
+    if (errText.includes('access is denied') || errText.includes('accès refusé') || res.exitCode === 5) {
+      try {
+        await sudoExec(`sc start ${name}`)
+        return { success: true, name }
+      } catch (sudoErr: unknown) {
+        const err = sudoErr as { message?: string }
+        return { success: false, name, error: 'Accès refusé. Sudo a échoué: ' + String(err.message || sudoErr) }
+      }
+    }
+    return { success: false, name, error: errText.trim() || 'Failed to start service' }
+  }
   return { success: true, name }
 }
 
@@ -59,8 +72,24 @@ export async function stopService(serviceName?: string): Promise<{ success: bool
   const name = serviceName ?? (await detectServiceName())
   if (!name) return { success: false, error: 'Service not found' }
 
-  const res = await execFileAsync('sc.exe', ['stop', name], { timeoutMs: 20_000 })
-  if (res.exitCode !== 0) return { success: false, name, error: (res.stderr || res.stdout).trim() || 'Failed to stop service' }
+  const res = await execFileAsync('sc.exe', ['stop', name], { timeoutMs: 15_000 }).catch(e => e)
+  const isAccessDenied = res?.exitCode === 5 || String(res?.stderr || res?.stdout || '').toLowerCase().includes('access is denied')
+  
+  // Try sudo stop if access denied, otherwise force kill
+  try {
+    if (isAccessDenied) {
+      await sudoExec(`sc.exe stop ${name}; Start-Sleep -Seconds 2; sc.exe failure ${name} reset= 0 actions= ""; taskkill.exe /F /FI "SERVICES eq ${name}"; taskkill.exe /F /IM "BalanceAgentService.exe"; sc.exe failure ${name} reset= 86400 actions= restart/5000/restart/5000/restart/5000`)
+    } else {
+      // Normal kill because it froze
+      await execFileAsync('sc.exe', ['failure', name, 'reset=', '0', 'actions=', '""']).catch(() => {})
+      await execFileAsync('taskkill.exe', ['/F', '/FI', `SERVICES eq ${name}`], { timeoutMs: 5000 }).catch(() => {})
+      await execFileAsync('taskkill.exe', ['/F', '/IM', `BalanceAgentService.exe`], { timeoutMs: 5000 }).catch(() => {})
+      await execFileAsync('sc.exe', ['failure', name, 'reset=', '86400', 'actions=', 'restart/5000/restart/5000/restart/5000']).catch(() => {})
+    }
+  } catch (err) {
+    return { success: false, name, error: String(err) }
+  }
+
   return { success: true, name }
 }
 
