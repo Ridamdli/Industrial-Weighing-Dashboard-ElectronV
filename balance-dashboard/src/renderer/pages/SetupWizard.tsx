@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CheckCircle2, ArrowRight, ArrowLeft, Play, Wrench } from 'lucide-react'
 import { balanceApi } from '../api/balanceApi'
 import { cn } from '@/lib/utils'
 
-type StepId = 'welcome' | 'comport' | 'config' | 'launch'
+type StepId = 'welcome' | 'comport' | 'scaletest' | 'config' | 'launch' | 'finish'
 
 type PortInfo = {
   path: string
@@ -13,9 +13,11 @@ type PortInfo = {
 
 const STEPS: { id: StepId; label: string }[] = [
   { id: 'welcome', label: 'Bienvenue' },
-  { id: 'comport', label: 'Port COM' },
-  { id: 'config', label: 'Configuration' },
-  { id: 'launch', label: 'Démarrage' },
+  { id: 'comport', label: '1. Port COM' },
+  { id: 'scaletest', label: '2. Test Balance' },
+  { id: 'config', label: '3. Configurations' },
+  { id: 'launch', label: '4. Démarrage' },
+  { id: 'finish', label: '5. Terminé' },
 ]
 
 export function SetupWizard() {
@@ -25,13 +27,27 @@ export function SetupWizard() {
   const [selectedPort, setSelectedPort] = useState('')
   const [baudRate, setBaudRate] = useState('9600')
   const [apiHost, setApiHost] = useState('localhost')
-  const [apiPort, setApiPort] = useState('8668')
+  const [apiPort, setApiPort] = useState('5001')
+  const [configPath, setConfigPath] = useState('')
   const [saving, setSaving] = useState(false)
   const [installing, setInstalling] = useState(false)
   const [launching, setLaunching] = useState(false)
   const [launchDone, setLaunchDone] = useState(false)
   const [serviceMissing, setServiceMissing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    balanceApi.config.read().then(res => {
+      if (res && res.path) {
+        setConfigPath(res.path)
+        const raw = res.data as Record<string, Record<string, unknown>>
+        if (raw.api?.host) setApiHost(String(raw.api.host))
+        if (raw.api?.port) setApiPort(String(raw.api.port))
+        if (raw.Balance1?.PortCom) setSelectedPort(String(raw.Balance1.PortCom))
+        if (raw.Balance1?.BaudRate) setBaudRate(String(raw.Balance1.BaudRate))
+      }
+    }).catch(() => {})
+  }, [])
 
   const stepIndex = STEPS.findIndex(s => s.id === step)
 
@@ -80,10 +96,10 @@ export function SetupWizard() {
     setSaving(true)
     try {
       const payload = {
-        path: '',
+        path: configPath,
         data: {
-          API: { Host: apiHost, Port: parseInt(apiPort, 10) },
-          Balance: { ComPort: selectedPort, BaudRate: parseInt(baudRate, 10) }
+          api: { host: apiHost, port: parseInt(apiPort, 10) },
+          Balance1: { PortCom: selectedPort, BaudRate: parseInt(baudRate, 10) }
         }
       }
       const writeRes = await balanceApi.config.write(payload)
@@ -106,6 +122,7 @@ export function SetupWizard() {
       const res = await balanceApi.service.start()
       if (res.success) {
         setLaunchDone(true)
+        setStep('finish')
       } else {
         // If error contains "not found" or similar, maybe it's not installed
         if (res.error?.toLowerCase().includes('service not found') || 
@@ -234,6 +251,24 @@ export function SetupWizard() {
           </div>
         )}
 
+        {step === 'scaletest' && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold">Test de Connexion Balance</h2>
+            <p className="text-muted-foreground">Vérification de la communication avec la balance sur le port sélectionné avant de continuer.</p>
+            <div className="p-4 bg-muted/50 rounded-lg border border-border text-sm space-y-1">
+              <div><span className="text-muted-foreground">Port COM testé:</span> <span className="font-mono font-bold">{selectedPort}</span></div>
+            </div>
+            {error && (
+              <div className="p-4 bg-destructive/10 text-destructive rounded-lg text-sm font-medium">
+                {error}
+              </div>
+            )}
+            <div className="mt-4 p-4 bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded-lg border border-blue-200 dark:border-blue-800 text-sm">
+              ℹ L'application ne peut pas tester directement le port COM pour des raisons de conformité avec l'architecture. Le test réel sera effectué par le service une fois démarré. Appuyez sur Suivant pour continuer la configuration.
+            </div>
+          </div>
+        )}
+
         {step === 'config' && (
           <div className="space-y-6">
             <h2 className="text-xl font-semibold">Configuration du Serveur API</h2>
@@ -319,6 +354,22 @@ export function SetupWizard() {
             )}
           </div>
         )}
+
+        {step === 'finish' && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold">Configuration Terminée</h2>
+            <div className="flex flex-col items-center gap-4 py-8 text-center">
+              <CheckCircle2 className="w-16 h-16 text-green-500" />
+              <div>
+                <h3 className="text-xl font-bold text-green-600 dark:text-green-400">Prêt à l'emploi !</h3>
+                <p className="text-muted-foreground mt-2">
+                  L'assistant a terminé la configuration du service.<br />
+                  Vous pouvez retourner au Dashboard.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Navigation buttons */}
@@ -336,7 +387,7 @@ export function SetupWizard() {
           <ArrowLeft className="w-4 h-4" /> Précédent
         </button>
 
-        {step !== 'launch' && (
+        {step !== 'launch' && step !== 'finish' && (
           <button
             onClick={goNext}
             disabled={(step === 'comport' && !selectedPort)}
@@ -346,6 +397,14 @@ export function SetupWizard() {
             )}
           >
             Suivant <ArrowRight className="w-4 h-4" />
+          </button>
+        )}
+        {step === 'finish' && (
+          <button
+            onClick={() => window.location.hash = '#/'}
+            className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium"
+          >
+            Aller au Dashboard <ArrowRight className="w-4 h-4" />
           </button>
         )}
       </div>

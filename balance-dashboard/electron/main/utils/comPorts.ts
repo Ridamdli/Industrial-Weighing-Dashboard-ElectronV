@@ -26,33 +26,12 @@ export async function listComPorts(): Promise<ComPortInfo[]> {
 }
 
 export async function testComPort(
-  portPath: string,
-  options?: { baudRate?: number; timeoutMs?: number },
+  _portPath: string,
+  _options?: { baudRate?: number; timeoutMs?: number },
 ): Promise<{ success: boolean; error?: string }> {
-  const baudRate = options?.baudRate ?? 9600
-  const timeoutMs = options?.timeoutMs ?? 1500
-
-  return await new Promise((resolve) => {
-    const port = new SerialPort({ path: portPath, baudRate, autoOpen: false })
-
-    const done = (result: { success: boolean; error?: string }) => {
-      try {
-        if (port.isOpen) {
-          port.close(() => resolve(result))
-          return
-        }
-      } catch {
-        // ignore
-      }
-      resolve(result)
-    }
-
-    const t = setTimeout(() => done({ success: false, error: `Timeout opening ${portPath}` }), timeoutMs)
-    port.open((err) => {
-      clearTimeout(t)
-      if (err) return done({ success: false, error: err.message })
-      return done({ success: true })
-    })
-  })
+  return { 
+    success: false, 
+    error: 'Direct COM port testing via Electron is disabled for architectural compliance. Use API connection testing or the dashboard.' 
+  }
 }
 

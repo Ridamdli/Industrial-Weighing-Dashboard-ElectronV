@@ -8,8 +8,9 @@ export function registerConfigHandlers() {
     return await readIniConfig(p)
   })
 
-  ipcMain.handle(IPC_CHANNELS.config.write, async (_evt, payload: { path: string; data: Record<string, unknown> }) => {
-    return await writeIniConfig(payload.path, payload.data)
+  ipcMain.handle(IPC_CHANNELS.config.write, async (_evt, payload: { path?: string; data: Record<string, unknown> }) => {
+    const p = (payload.path && payload.path.trim() !== '') ? payload.path : (await detectDefaultConfigPath())
+    return await writeIniConfig(p, payload.data)
   })
 }
 

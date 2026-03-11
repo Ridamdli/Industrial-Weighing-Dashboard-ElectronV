@@ -55,7 +55,24 @@ export async function writeIniConfig(
   data: Record<string, unknown>,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const serialized = ini.stringify(data as Record<string, unknown>)
+    let existingData: Record<string, unknown> = {}
+    try {
+      const { data: current } = await readIniConfig(configPath)
+      existingData = current
+    } catch {
+      // ignore if file doesn't exist
+    }
+
+    const mergedData = { ...existingData }
+    for (const key of Object.keys(data)) {
+      if (typeof data[key] === 'object' && data[key] !== null && !Array.isArray(data[key])) {
+        mergedData[key] = { ...(existingData[key] as Record<string, unknown> || {}), ...(data[key] as Record<string, unknown>) }
+      } else {
+        mergedData[key] = data[key]
+      }
+    }
+
+    const serialized = ini.stringify(mergedData as Record<string, unknown>)
     const dir = path.dirname(configPath)
     const base = path.basename(configPath)
     const tmp = path.join(dir, `${base}.tmp`)

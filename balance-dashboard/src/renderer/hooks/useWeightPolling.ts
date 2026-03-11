@@ -16,8 +16,10 @@ export function useWeightPolling(intervalMs = 1000) {
 
         if (res.ok) {
           const body = res.body as Record<string, unknown>
-          if (body && typeof body.poids === 'number') {
-            setWeight(body.poids as number, String(body.unite ?? 'kg'), new Date().toISOString())
+          const w = body?.weight ?? body?.poids
+          const u = body?.unit ?? body?.unite ?? 'kg'
+          if (typeof w === 'number') {
+            setWeight(w, String(u), new Date().toISOString())
             setError(null)
           } else {
             setError('Format de données invalide')

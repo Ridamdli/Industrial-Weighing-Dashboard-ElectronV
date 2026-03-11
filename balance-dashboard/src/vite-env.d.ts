@@ -19,8 +19,8 @@ interface Window {
       test: (payload: { path: string; baudRate?: number }) => Promise<{ success: boolean; error?: string }>
     }
     balance: {
-      getHealth: () => Promise<{ ok: boolean; status: number; body: unknown }>
-      getWeight: () => Promise<{ ok: boolean; status: number; body: unknown }>
+      getHealth: () => Promise<{ ok: boolean; status: number; body: { status?: string; message?: string } | unknown }>
+      getWeight: () => Promise<{ ok: boolean; status: number; body: { weight?: number; unit?: string; poids?: number; unite?: string; message?: string } | unknown }>
     }
     logs: {
       getRecent: (payload?: { newest?: number; source?: string }) => Promise<Array<{ time: string; level: string; source?: string; message: string }>>

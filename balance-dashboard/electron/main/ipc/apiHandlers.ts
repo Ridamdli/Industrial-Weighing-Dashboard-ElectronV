@@ -19,24 +19,19 @@ function toNumber(v: unknown): number | null {
 }
 
 function getApiSettingsFromIni(data: Record<string, unknown>): ApiSettings {
+  const defaultSettings = { host: 'localhost', port: 5001, timeoutMs: 3000 }
   const api = data.api
+
   if (!api || typeof api !== 'object') {
-    throw new Error('Missing [api] section in balance.ini')
+    return defaultSettings
   }
   const apiObj = api as Record<string, unknown>
 
-  const host = apiObj.host
-  const port = toNumber(apiObj.port)
-  const timeoutMs = toNumber(apiObj.timeout) ?? 3000
+  const host = typeof apiObj.host === 'string' && apiObj.host.trim() !== '' ? apiObj.host.trim() : defaultSettings.host
+  const port = toNumber(apiObj.port) ?? defaultSettings.port
+  const timeoutMs = toNumber(apiObj.timeout) ?? defaultSettings.timeoutMs
 
-  if (typeof host !== 'string' || host.trim() === '') {
-    throw new Error('Missing api.host in balance.ini')
-  }
-  if (port == null || port <= 0) {
-    throw new Error('Missing or invalid api.port in balance.ini')
-  }
-
-  return { host: host.trim(), port, timeoutMs }
+  return { host, port, timeoutMs }
 }
 
 async function getBaseUrlAndTimeout(): Promise<{ baseUrl: string; timeoutMs: number }> {

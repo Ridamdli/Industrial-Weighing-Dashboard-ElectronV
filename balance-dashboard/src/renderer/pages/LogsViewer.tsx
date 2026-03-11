@@ -24,7 +24,10 @@ export function LogsViewer() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [streaming, setStreaming] = useState(false)
+  const [filterText, setFilterText] = useState('')
+  const [filterLevel, setFilterLevel] = useState('All')
   const bottomRef = useRef<HTMLDivElement>(null)
+  const unsubRef = useRef<(() => void) | null>(null)
   const setStoreLogs = useAppStore(s => s.addLogs)
 
   const fetchRecent = async () => {
@@ -44,10 +47,18 @@ export function LogsViewer() {
   const startStream = async () => {
     setStreaming(true)
     await balanceApi.logs.subscribe({ intervalMs: 3000 })
-    balanceApi.logs.onNewEntries((payload: unknown) => {
+    if (unsubRef.current) unsubRef.current()
+    unsubRef.current = balanceApi.logs.onNewEntries((payload: unknown) => {
       if (Array.isArray(payload)) {
         setLogs(prev => {
-          const merged = [...(payload as LogEntry[]), ...prev]
+          const newEntries = payload as LogEntry[]
+          const prevMap = new Map(prev.map(e => [`${e.timeGenerated || '-'}-${e.eventId || '-'}-${e.message}`, e]))
+          newEntries.forEach(e => {
+            prevMap.set(`${e.timeGenerated || '-'}-${e.eventId || '-'}-${e.message}`, e)
+          })
+          const merged = Array.from(prevMap.values()).sort((a, b) => {
+            return new Date(b.timeGenerated || b.time || 0).getTime() - new Date(a.timeGenerated || a.time || 0).getTime()
+          })
           return merged.slice(0, 500)
         })
         setStoreLogs(payload)
@@ -56,6 +67,10 @@ export function LogsViewer() {
   }
 
   const stopStream = async () => {
+    if (unsubRef.current) {
+      unsubRef.current()
+      unsubRef.current = null
+    }
     await balanceApi.logs.unsubscribe()
     setStreaming(false)
   }
@@ -63,6 +78,7 @@ export function LogsViewer() {
   useEffect(() => {
     fetchRecent()
     return () => {
+      if (unsubRef.current) unsubRef.current()
       balanceApi.logs.unsubscribe().catch(() => {})
     }
   }, [])
@@ -127,6 +143,26 @@ export function LogsViewer() {
         </div>
       </div>
 
+      <div className="flex gap-4">
+        <input 
+          type="text" 
+          placeholder="Filtrer par texte..." 
+          value={filterText}
+          onChange={e => setFilterText(e.target.value)}
+          className="flex-1 h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+        />
+        <select 
+          value={filterLevel}
+          onChange={e => setFilterLevel(e.target.value)}
+          className="w-48 h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+        >
+          <option value="All">Tous les niveaux</option>
+          <option value="Error">Erreurs</option>
+          <option value="Warning">Avertissements</option>
+          <option value="Information">Informations</option>
+        </select>
+      </div>
+
       {streaming && (
         <div className="flex items-center gap-2 text-sm text-green-500 font-medium">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -151,7 +187,10 @@ export function LogsViewer() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {logs.map((entry, i) => (
+                {logs
+                  .filter(entry => filterLevel === 'All' || entry.level === filterLevel)
+                  .filter(entry => !filterText || (entry.message && entry.message.toLowerCase().includes(filterText.toLowerCase())))
+                  .map((entry, i) => (
                   <tr key={i} className="hover:bg-muted/50 transition-colors">
                     <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{formatTime(entry.timeGenerated ?? entry.time ?? '')}</td>
                     <td className={cn("px-4 py-2.5 text-xs font-medium whitespace-nowrap", levelColors[entry.level] ?? 'text-foreground')}>{entry.level}</td>

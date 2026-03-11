@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { HashRouter, Routes, Route, Link } from 'react-router-dom'
 import { Activity, Settings, HardDrive, FileText, Wrench } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { StatusBadge } from './components/StatusBadge'
 import { WeightGauge } from './components/WeightGauge'
 import { LiveWeightChart } from './components/LiveWeightChart'
@@ -16,6 +17,8 @@ import './App.css'
 
 function Dashboard() {
   const { error } = useWeightPolling(1000)
+  const serviceState = useAppStore(s => s.serviceState)
+  const logs = useAppStore(s => s.logs).slice(0, 5)
   
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -24,6 +27,31 @@ function Dashboard() {
         <p className="text-muted-foreground mt-2">
           Vue d'ensemble en temps réel du système de pesage industriel.
         </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-4 bg-card border rounded-lg flex flex-col gap-1 shadow-sm">
+          <span className="text-sm font-medium text-muted-foreground">État du Service</span>
+          <div className="mt-1"><StatusBadge state={serviceState} /></div>
+        </div>
+        <div className="p-4 bg-card border rounded-lg flex flex-col gap-1 shadow-sm">
+          <span className="text-sm font-medium text-muted-foreground">API Balance</span>
+          <span className={cn("text-lg font-bold", error ? "text-destructive" : "text-green-500")}>
+            {error ? 'Erreur / Déconnectée' : 'Connectée'}
+          </span>
+          {error && <span className="text-xs text-muted-foreground truncate" title={error}>{error}</span>}
+        </div>
+        <div className="p-4 bg-card border rounded-lg flex flex-col gap-1 shadow-sm min-h-[100px] overflow-hidden">
+          <span className="text-sm font-medium text-muted-foreground">Derniers Journaux</span>
+          <div className="space-y-1 mt-1 overflow-auto">
+            {logs.length === 0 ? <div className="text-xs text-muted-foreground">Aucun journal.</div> : 
+              logs.map((L: { message: string }, i: number) => (
+                <div key={i} className="text-xs text-foreground truncate" title={L.message}>
+                  {L.message}
+                </div>
+              ))}
+          </div>
+        </div>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
