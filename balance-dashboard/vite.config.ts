@@ -71,6 +71,19 @@ export default defineConfig(({ command }) => {
         port: +url.port,
       }
     })(),
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('recharts')) return 'vendor-charts'
+              if (id.includes('lucide-react')) return 'vendor-icons'
+              return 'vendor'
+            }
+          }
+        }
+      }
+    },
     clearScreen: false,
   }
 })

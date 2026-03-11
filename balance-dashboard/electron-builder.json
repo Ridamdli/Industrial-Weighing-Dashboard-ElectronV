@@ -10,13 +10,20 @@
     "dist-electron/**",
     "dist/**"
   ],
-  "mac": {
-    "artifactName": "${productName}_${version}.${ext}",
-    "target": [
-      "dmg",
-      "zip"
-    ]
-  },
+  "extraResources": [
+    {
+      "from": "../balances.ini",
+      "to": "balances.ini"
+    },
+    {
+      "from": "../install.bat",
+      "to": "install.bat"
+    },
+    {
+      "from": "../BalanceAgentService.exe",
+      "to": "BalanceAgentService.exe"
+    }
+  ],
   "win": {
     "target": [
       {
@@ -26,12 +33,16 @@
         ]
       }
     ],
-    "artifactName": "${productName}_${version}.${ext}"
+    "artifactName": "${productName}_${version}.${ext}",
+    "requestedExecutionLevel": "requireAdministrator"
   },
   "nsis": {
     "oneClick": false,
-    "perMachine": false,
+    "perMachine": true,
     "allowToChangeInstallationDirectory": true,
-    "deleteAppDataOnUninstall": false
+    "deleteAppDataOnUninstall": false,
+    "installerIcon": "build/icon.ico",
+    "uninstallerIcon": "build/icon.ico",
+    "allowElevation": true
   }
 }

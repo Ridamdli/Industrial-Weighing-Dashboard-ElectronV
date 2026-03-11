@@ -1,37 +1,113 @@
-import { useState } from 'react'
-import UpdateElectron from '@/components/update'
-import logoVite from './assets/logo-vite.svg'
-import logoElectron from './assets/logo-electron.svg'
+import { useEffect } from 'react'
+import { HashRouter, Routes, Route, Link } from 'react-router-dom'
+import { Activity, Settings, HardDrive, FileText, Wrench } from 'lucide-react'
+import { StatusBadge } from './components/StatusBadge'
+import { WeightGauge } from './components/WeightGauge'
+import { LiveWeightChart } from './components/LiveWeightChart'
+import { useWeightPolling } from './renderer/hooks/useWeightPolling'
+import { useAppStore } from './renderer/store/appStore'
+import { balanceApi } from './renderer/api/balanceApi'
+import { ServiceControl } from './renderer/pages/ServiceControl'
+import { IniForm } from './renderer/pages/IniForm'
+import { ComPortDetector } from './renderer/pages/ComPortDetector'
+import { LogsViewer } from './renderer/pages/LogsViewer'
+import { SetupWizard } from './renderer/pages/SetupWizard'
 import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+function Dashboard() {
+  const { error } = useWeightPolling(1000)
+  
   return (
-    <div className='App'>
-      <div className='logo-box'>
-        <a href='https://github.com/electron-vite/electron-vite-react' target='_blank'>
-          <img src={logoVite} className='logo vite' alt='Electron + Vite logo' />
-          <img src={logoElectron} className='logo electron' alt='Electron + Vite logo' />
-        </a>
-      </div>
-      <h1>Electron + Vite + React</h1>
-      <div className='card'>
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
+    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Tableau de Bord</h1>
+        <p className="text-muted-foreground mt-2">
+          Vue d'ensemble en temps réel du système de pesage industriel.
         </p>
       </div>
-      <p className='read-the-docs'>
-        Click on the Electron + Vite logo to learn more
-      </p>
-      <div className='flex-center'>
-        Place static files into the<code>/public</code> folder <img style={{ width: '5em' }} src='./node.svg' alt='Node logo' />
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1">
+          <WeightGauge error={error} />
+        </div>
+        <div className="lg:col-span-2">
+          <LiveWeightChart />
+        </div>
       </div>
-
-      <UpdateElectron />
     </div>
+  )
+}
+
+function Layout({ children }: { children: React.ReactNode }) {
+  const serviceState = useAppStore(s => s.serviceState)
+  const setServiceState = useAppStore(s => s.setServiceState)
+
+  useEffect(() => {
+      balanceApi.service.status().then((res) => setServiceState(res.state as Parameters<typeof setServiceState>[0]))
+    const timer = setInterval(() => {
+        balanceApi.service.status().then((res) => setServiceState(res.state as Parameters<typeof setServiceState>[0]))
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [setServiceState])
+
+  return (
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
+      {/* Sidebar */}
+      <aside className="w-64 border-r border-border bg-card flex flex-col hidden md:flex">
+        <div className="h-14 flex items-center px-4 border-b border-border">
+          <h2 className="font-semibold tracking-tight">Balance Dashboard</h2>
+        </div>
+        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+          <Link to="/" className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-accent hover:text-accent-foreground text-sm font-medium transition-colors">
+            <Activity className="w-4 h-4" /> Tableau de Bord
+          </Link>
+          <Link to="/service" className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-accent hover:text-accent-foreground text-sm font-medium transition-colors">
+            <Settings className="w-4 h-4" /> Contrôle du Service
+          </Link>
+          <Link to="/config" className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-accent hover:text-accent-foreground text-sm font-medium transition-colors">
+            <HardDrive className="w-4 h-4" /> Configuration
+          </Link>
+          <Link to="/ports" className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-accent hover:text-accent-foreground text-sm font-medium transition-colors">
+            <Wrench className="w-4 h-4" /> Ports COM
+          </Link>
+          <Link to="/logs" className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-accent hover:text-accent-foreground text-sm font-medium transition-colors">
+            <FileText className="w-4 h-4" /> Journaux (Logs)
+          </Link>
+          <div className="my-4 border-t border-border"></div>
+          <Link to="/setup" className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-primary hover:text-primary-foreground text-sm font-medium transition-colors">
+            <Wrench className="w-4 h-4" /> Assistant d'Installation
+          </Link>
+        </nav>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-w-0">
+        <header className="h-14 border-b border-border bg-card/50 flex items-center px-6 justify-between shrink-0">
+          <div className="text-sm font-medium text-muted-foreground">Industrial Weighing System</div>
+          <StatusBadge state={serviceState} />
+        </header>
+        <div className="flex-1 overflow-auto bg-background">
+          {children}
+        </div>
+      </main>
+    </div>
+  )
+}
+
+function App() {
+  return (
+    <HashRouter>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/service" element={<ServiceControl />} />
+          <Route path="/config" element={<IniForm />} />
+          <Route path="/ports" element={<ComPortDetector />} />
+          <Route path="/logs" element={<LogsViewer />} />
+          <Route path="/setup" element={<SetupWizard />} />
+        </Routes>
+      </Layout>
+    </HashRouter>
   )
 }
 

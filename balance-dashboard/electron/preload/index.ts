@@ -12,6 +12,28 @@ function on<T = unknown>(channel: string, listener: Listener<T>) {
 contextBridge.exposeInMainWorld('api', {
   service: {
     status: () => ipcRenderer.invoke(IPC_CHANNELS.service.status),
+    start: () => ipcRenderer.invoke(IPC_CHANNELS.service.start),
+    stop: () => ipcRenderer.invoke(IPC_CHANNELS.service.stop),
+    restart: () => ipcRenderer.invoke(IPC_CHANNELS.service.restart),
+    install: () => ipcRenderer.invoke(IPC_CHANNELS.service.install),
+  },
+  config: {
+    read: (configPath?: string) => ipcRenderer.invoke(IPC_CHANNELS.config.read, configPath),
+    write: (payload: { path: string; data: Record<string, unknown> }) => ipcRenderer.invoke(IPC_CHANNELS.config.write, payload),
+  },
+  comPorts: {
+    list: () => ipcRenderer.invoke(IPC_CHANNELS.comPorts.list),
+    test: (payload: { path: string; baudRate?: number }) => ipcRenderer.invoke(IPC_CHANNELS.comPorts.test, payload),
+  },
+  balance: {
+    getHealth: () => ipcRenderer.invoke(IPC_CHANNELS.balance.getHealth),
+    getWeight: () => ipcRenderer.invoke(IPC_CHANNELS.balance.getWeight),
+  },
+  logs: {
+    getRecent: (payload?: { newest?: number; source?: string }) => ipcRenderer.invoke(IPC_CHANNELS.logs.getRecent, payload),
+    subscribe: (payload?: { intervalMs?: number; source?: string }) => ipcRenderer.invoke(IPC_CHANNELS.logs.subscribe, payload),
+    unsubscribe: () => ipcRenderer.invoke(IPC_CHANNELS.logs.unsubscribe),
+    onNewEntries: (listener: Listener<unknown>) => on(IPC_CHANNELS.logs.newEntries, listener),
   },
   updater: {
     check: () => ipcRenderer.invoke(IPC_CHANNELS.updater.check),
@@ -25,10 +47,6 @@ contextBridge.exposeInMainWorld('api', {
       on(IPC_CHANNELS.updater.downloadProgress, listener),
     onDownloaded: (listener: Listener<void>) =>
       on(IPC_CHANNELS.updater.downloaded, listener),
-  },
-  demo: {
-    onMainProcessMessage: (listener: Listener<string>) =>
-      on(IPC_CHANNELS.demo.mainProcessMessage, listener),
   },
 })
 

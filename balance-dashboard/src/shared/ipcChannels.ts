@@ -3,6 +3,7 @@ export const IPC_CHANNELS = {
     start: 'service:start',
     stop: 'service:stop',
     restart: 'service:restart',
+    install: 'service:install',
     status: 'service:status',
   },
   config: {

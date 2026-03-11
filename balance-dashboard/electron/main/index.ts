@@ -1,9 +1,10 @@
-import { app, BrowserWindow, shell, ipcMain } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import os from 'node:os'
 import { update } from './update'
-import { IPC_CHANNELS } from '../../src/shared/ipcChannels'
+
+import { registerIpcHandlers } from './ipc'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -61,9 +62,8 @@ async function createWindow() {
     win.loadFile(indexHtml)
   }
 
-  // Test actively push message to the Electron-Renderer
   win.webContents.on('did-finish-load', () => {
-    win?.webContents.send(IPC_CHANNELS.demo.mainProcessMessage, new Date().toLocaleString())
+    // Demo message removed
   })
 
   // Make all links open with the browser, not with the application
@@ -100,5 +100,4 @@ app.on('activate', () => {
   }
 })
 
-// Phase 1 IPC skeleton (handlers will be fully implemented in Phase 2+)
-ipcMain.handle(IPC_CHANNELS.service.status, async () => ({ state: 'unknown' as const }))
+registerIpcHandlers(() => win)

@@ -1,115 +1,106 @@
-# BalanceAgentService - Memory Bank
+# Industrial Weighing System ⚖️
 
-## Project Overview
+A comprehensive solution for real-time industrial weighing, consisting of a robust Windows background service and a modern Electron-based monitoring dashboard.
 
-**BalanceAgentService** is a Windows service that reads weight measurements from RJ45-connected scales and exposes them via an HTTP API on port 5001.
+## 🚀 Overview
 
-**Language**: C# (.NET)  
-**Type**: Windows Service  
-**Primary Function**: Serial communication with scales + HTTP API endpoint
+The **Industrial Weighing System** is designed to bridge the gap between physical industrial scales and digital processing systems. It captures weight measurements from serial/RJ45-connected scales and provides a high-performance interface for monitoring, configuration, and service management.
 
----
+### System Components
 
-## Architecture
-
-### Core Components
-
-1. **BalanceAgentService.exe** - Main Windows service executable
-2. **balances.ini** - Configuration file for scale definitions
-3. **install.bat** - Automated service installation script
-
-### Service Details
-
-- **Service Name**: BalanceAgentService
-- **Display Name**: Balance Agent Service RJ45
-- **Startup Type**: Automatic
-- **API Port**: 5001
-- **Health Endpoint**: `http://localhost:5001/api/health`
-- **Logging**: Windows Event Viewer (Application log)
+| Component | Technology | Description |
+|-----------|------------|-------------|
+| **BalanceAgentService** | .NET (C#) | Background Windows service that handles direct serial communication and exposes a REST API. |
+| **Monitoring Dashboard** | Electron + React | Desktop application for real-time visualization, advanced configuration, and log inspection. |
 
 ---
 
-## Configuration (balances.ini)
+## ✨ Key Features
 
-### Structure
+### 📊 Real-time Monitoring
+- **Live Gauge**: High-contrast, industrial-grade weight display with unit precision.
+- **Historical Chart**: 60-second rolling history of weight measurements for trend analysis.
+- **Status Indicators**: Instant visual feedback on service and scale connectivity.
 
-```ini
-[Balances]
-NombreBalances=<number_of_scales>
+### 🛠️ Service Management
+- **One-Click Controls**: Start, stop, and restart the Windows service directly from the UI.
+- **Service Installer**: Integrated wizard to install/re-install the background service automatically.
+- **Auto-Elevation**: Handles UAC requests to ensure administrative tasks perform reliably.
 
-[Balance<N>]
-Nom=<scale_name>
-PortCom=<COM_port>
-BaudRate=<baud_rate>
-DataBits=<data_bits>
-Parity=<parity_type>
-StopBits=<stop_bits>
-Timeout=<timeout_ms>
-Unite=<unit>
-Decimales=<decimal_places>
-```
-
-### Current Configuration
-
-- **1 Scale** named "reception"
-- **COM Port**: COM1
-- **Serial Settings**: 9600 baud, 8 data bits, No parity, 1 stop bit
-- **Timeout**: 5000ms
-- **Unit**: kg (kilograms)
-- **Decimal Places**: 2
+### ⚙️ Configuration & Diagnostics
+- **INI Manager**: User-friendly editor for the `balances.ini` configuration file.
+- **COM Port Detector**: Integrated scanner to identify and test active system serial ports.
+- **Log Viewer**: Real-time streaming of Windows Event Log entries filtered for the system.
 
 ---
 
-## Installation & Deployment
+## 🛠️ Tech Stack
+
+- **Dashboard**: Electron, Vite, React, TypeScript.
+- **Styling**: Tailwind CSS, Shadcn UI, Lucide Icons.
+- **State Management**: Zustand.
+- **Backend Service**: .NET (C#) Windows Service.
+- **Communication**: Electron IPC + REST API.
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- Windows OS (service-based)
-- Administrator privileges
-- Serial COM port available for scale connection
+- **OS**: Windows 10/11 (Administrator privileges required).
+- **Scale**: Serial or RJ45-connected industrial scale.
+- **Runtime**: Node.js (for development), .NET Framework (for service).
 
-### Installation Steps
+### Development Setup
 
-1. Run `install.bat` as Administrator
-2. Script creates Windows service with auto-start
-3. Configures failure recovery (restart on failure)
-4. Starts service automatically
-5. Verify via Event Viewer or `http://localhost:5001/api/health`
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd BalanceAgentService/balance-dashboard
+   ```
 
-### Service Management
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
-```batch
-net start BalanceAgentService    # Start service
-net stop BalanceAgentService     # Stop service
-sc query BalanceAgentService     # Check status
+3. **Start the development server**:
+   ```bash
+   npm run dev
+   ```
+
+### Production Build
+
+To package the application into a Windows installer:
+```bash
+npm run build
+npm run package
+```
+The installer will be generated in `release/`.
+
+---
+
+## 📂 Project Structure
+
+```bash
+├── BalanceAgentService.exe  # Compiled Windows service
+├── install.bat              # Manual installation script
+├── balances.ini             # System configuration
+└── balance-dashboard/       # Electron Dashboard Source
+    ├── electron/            # Main & Preload processes
+    ├── src/                 # React Renderer (UI Code)
+    └── package.json         # Project dependencies
 ```
 
 ---
 
-## Key Technical Details
+## 📞 Support & Logging
 
-### Serial Communication
-
-- Reads weight data from scales via COM port
-- Configurable baud rate, parity, stop bits
-- Timeout handling for communication failures
-
-### API Endpoints
-
-- Health check: `GET /api/health`
-- (Additional endpoints likely exist for reading scale data)
-
-### Error Handling
-
-- Service auto-restarts on failure (up to 3 attempts)
-- Logs to Windows Event Viewer
-- Graceful timeout handling
+The system logs all significant events to the **Windows Event Viewer**. Filter by the source `BalanceAgentService` to troubleshoot connectivity or scale communication issues.
 
 ---
 
-## Development Notes
+## 📄 License
 
-- Configuration is INI-based (easy to modify without recompilation)
-- Supports multiple scales (extensible via NombreBalances)
-- French language comments/labels in configuration
-- Service runs with system privileges
+MIT License - Copyright (c) 2026 Industrial Weighing Solutions.
