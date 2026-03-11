@@ -31,47 +31,45 @@ export function LiveWeightChart() {
 
   return (
     <div className="h-[300px] w-full p-4 border border-border rounded-xl bg-card flex flex-col">
-      <h3 className="text-sm font-medium text-muted-foreground mb-4 shrink-0">Historique des pesées (60s)</h3>
-      <div className="flex-1 min-h-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-            <XAxis 
-              dataKey="time" 
-              tickFormatter={formatTime} 
-              stroke="hsl(var(--muted-foreground))" 
-              fontSize={12}
-              tickMargin={10}
-              minTickGap={30}
-            />
-            <YAxis 
-              stroke="hsl(var(--muted-foreground))"
-              fontSize={12}
-              tickFormatter={(val) => val.toFixed(1)}
-              domain={['auto', 'auto']}
-              width={50}
-            />
-            <Tooltip 
-              labelFormatter={(label) => formatTime(label as number)}
-              contentStyle={{ 
-                backgroundColor: 'hsl(var(--card))',
-                borderColor: 'hsl(var(--border))',
-                borderRadius: '8px',
-                color: 'hsl(var(--foreground))'
-              }}
-              itemStyle={{ color: 'hsl(var(--primary))' }}
-            />
-            <Line 
-              type="monotone" 
-              dataKey="weight" 
-              stroke="hsl(var(--primary))" 
-              strokeWidth={3} 
-              dot={false}
-              animationDuration={300}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      <h3 className="text-sm font-medium text-muted-foreground mb-2 shrink-0">Historique des pesées (60s)</h3>
+      <ResponsiveContainer width="100%" height={236}>
+        <LineChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+          <XAxis 
+            dataKey="time" 
+            tickFormatter={formatTime} 
+            stroke="hsl(var(--muted-foreground))" 
+            fontSize={12}
+            tickMargin={10}
+            minTickGap={30}
+          />
+          <YAxis 
+            stroke="hsl(var(--muted-foreground))"
+            fontSize={12}
+            tickFormatter={(val) => val.toFixed(1)}
+            domain={['auto', 'auto']}
+            width={50}
+          />
+          <Tooltip 
+            labelFormatter={(label) => formatTime(label as number)}
+            contentStyle={{ 
+              backgroundColor: 'hsl(var(--card))',
+              borderColor: 'hsl(var(--border))',
+              borderRadius: '8px',
+              color: 'hsl(var(--foreground))'
+            }}
+            itemStyle={{ color: 'hsl(var(--primary))' }}
+          />
+          <Line 
+            type="monotone" 
+            dataKey="weight" 
+            stroke="hsl(var(--primary))" 
+            strokeWidth={3} 
+            dot={false}
+            animationDuration={300}
+          />
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   )
 }

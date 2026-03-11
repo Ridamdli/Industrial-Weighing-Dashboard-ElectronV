@@ -20,6 +20,9 @@ function Dashboard() {
   const serviceState = useAppStore(s => s.serviceState)
   const logs = useAppStore(s => s.logs).slice(0, 5)
   
+  const isIdle = error != null && (error.includes('Inactif') || error.includes('attente'))
+  const isRealError = error != null && !isIdle
+  
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
@@ -34,10 +37,15 @@ function Dashboard() {
           <span className="text-sm font-medium text-muted-foreground">État du Service</span>
           <div className="mt-1"><StatusBadge state={serviceState} /></div>
         </div>
-        <div className="p-4 bg-card border rounded-lg flex flex-col gap-1 shadow-sm">
+        <div className={cn("p-4 bg-card border rounded-lg flex flex-col gap-1 shadow-sm",
+            isRealError ? "border-destructive bg-destructive/5" :
+            isIdle ? "border-amber-400 bg-amber-50/30" : "")}>
           <span className="text-sm font-medium text-muted-foreground">API Balance</span>
-          <span className={cn("text-lg font-bold", error ? "text-destructive" : "text-green-500")}>
-            {error ? 'Erreur / Déconnectée' : 'Connectée'}
+          <span className={cn("text-lg font-bold",
+            isRealError ? "text-destructive" :
+            isIdle ? "text-amber-500" :
+            "text-green-500")}>
+            {isRealError ? 'Erreur / Déconnectée' : isIdle ? 'En attente (Inactif)' : 'Connectée'}
           </span>
           {error && <span className="text-xs text-muted-foreground truncate" title={error}>{error}</span>}
         </div>

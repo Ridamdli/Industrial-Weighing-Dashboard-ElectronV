@@ -72,25 +72,30 @@ export async function stopService(serviceName?: string): Promise<{ success: bool
   const name = serviceName ?? (await detectServiceName())
   if (!name) return { success: false, error: 'Service not found' }
 
-  const res = await execFileAsync('sc.exe', ['stop', name], { timeoutMs: 15_000 }).catch(e => e)
-  const isAccessDenied = res?.exitCode === 5 || String(res?.stderr || res?.stdout || '').toLowerCase().includes('access is denied')
-  
-  // Try sudo stop if access denied, otherwise force kill
+  // Step 1: try a graceful stop first (may fail if service is frozen or no admin)
+  await execFileAsync('sc.exe', ['stop', name], { timeoutMs: 8_000 }).catch(() => {})
+
+  // Give it 2 seconds to stop gracefully
+  await new Promise(r => setTimeout(r, 2000))
+
+  // Step 2: Check if it actually stopped
+  const statusAfterGrace = await getServiceStatus(name)
+  if (statusAfterGrace.state === 'stopped') return { success: true, name }
+
+  // Step 3: Still running → force kill via elevated PowerShell
   try {
-    if (isAccessDenied) {
-      await sudoExec(`sc.exe stop ${name}; Start-Sleep -Seconds 2; sc.exe failure ${name} reset= 0 actions= ""; taskkill.exe /F /FI "SERVICES eq ${name}"; taskkill.exe /F /IM "BalanceAgentService.exe"; sc.exe failure ${name} reset= 86400 actions= restart/5000/restart/5000/restart/5000`)
-    } else {
-      // Normal kill because it froze
-      await execFileAsync('sc.exe', ['failure', name, 'reset=', '0', 'actions=', '""']).catch(() => {})
-      await execFileAsync('taskkill.exe', ['/F', '/FI', `SERVICES eq ${name}`], { timeoutMs: 5000 }).catch(() => {})
-      await execFileAsync('taskkill.exe', ['/F', '/IM', `BalanceAgentService.exe`], { timeoutMs: 5000 }).catch(() => {})
-      await execFileAsync('sc.exe', ['failure', name, 'reset=', '86400', 'actions=', 'restart/5000/restart/5000/restart/5000']).catch(() => {})
-    }
+    await sudoExec(
+      `sc.exe failure ${name} reset= 0 actions= ""; ` +
+      `taskkill.exe /F /FI "SERVICES eq ${name}"; ` +
+      `taskkill.exe /F /IM "BalanceAgentService.exe"; ` +
+      `taskkill.exe /F /IM "BalenceAgentService.exe"; ` +
+      `Start-Sleep -Seconds 1; ` +
+      `sc.exe failure ${name} reset= 86400 actions= restart/5000/restart/5000/restart/5000`
+    )
+    return { success: true, name }
   } catch (err) {
     return { success: false, name, error: String(err) }
   }
-
-  return { success: true, name }
 }
 
 export async function restartService(serviceName?: string): Promise<{ success: boolean; error?: string; name?: string }> {

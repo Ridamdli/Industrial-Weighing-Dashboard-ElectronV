@@ -1,0 +1,35 @@
+
+> industrial-weighing-dashboard@2.2.0 dev
+> vite
+
+Port 5173 is in use, trying another one...
+
+  [32m[1mVITE[22m v7.3.1[39m  [2mready in [0m[1m482[22m[2m[0m ms[22m
+
+  [32mΓ₧£[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5174[22m/[39m
+[2m  [32mΓ₧£[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m[32m  Γ₧£[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[36mvite v7.3.1 [32mbuilding client environment for development...[36m[39m
+[36m
+watching for file changes...[39m
+[36mvite v7.3.1 [32mbuilding client environment for development...[36m[39m
+[36m
+watching for file changes...[39m
+[36m
+build started...[39m
+[36m
+build started...[39m
+transforming...
+transforming...
+[32mΓ£ô[39m 2 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist-electron/preload/[22m[36mindex.mjs  [39m[1m[2m18.63 kB[22m[1m[22m[2m Γöé gzip: 6.56 kB[22m[2m Γöé map: 9.95 kB[22m
+[36mbuilt in 1021ms.[39m
+[32mΓ£ô[39m 15 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist-electron/main/[22m[36mindex.js  [39m[1m[2m20.51 kB[22m[1m[22m[2m Γöé gzip: 5.89 kB[22m[2m Γöé map: 43.49 kB[22m
+[36mbuilt in 1158ms.[39m
+
+ERROR: The process "12952" not found.
