@@ -51,51 +51,80 @@ export async function startService(serviceName?: string): Promise<{ success: boo
   const name = serviceName ?? (await detectServiceName())
   if (!name) return { success: false, error: 'Service not found' }
 
-  const res = await execFileAsync('sc.exe', ['start', name], { timeoutMs: 20_000 })
-  if (res.exitCode !== 0) {
-    const errText = String(res.stderr || res.stdout || '').toLowerCase()
-    if (errText.includes('access is denied') || errText.includes('accès refusé') || res.exitCode === 5) {
-      try {
-        await sudoExec(`sc start ${name}`)
-        return { success: true, name }
-      } catch (sudoErr: unknown) {
-        const err = sudoErr as { message?: string }
-        return { success: false, name, error: 'Accès refusé. Sudo a échoué: ' + String(err.message || sudoErr) }
-      }
-    }
-    return { success: false, name, error: errText.trim() || 'Failed to start service' }
+  try {
+    await sudoExec(`sc.exe start "${name}"\r\n`, 20_000)
+    return { success: true, name }
+  } catch (err: unknown) {
+    const e = err as { message?: string }
+    return { success: false, name, error: e.message || String(err) }
   }
-  return { success: true, name }
+}
+
+
+function parseServicePid(stdout: string): number | null {
+  // sc queryex prints: "        PID                    : 12345"
+  const m = stdout.match(/PID\s*:\s*(\d+)/i)
+  const pid = m ? parseInt(m[1], 10) : null
+  return pid && pid > 0 ? pid : null
 }
 
 export async function stopService(serviceName?: string): Promise<{ success: boolean; error?: string; name?: string }> {
   const name = serviceName ?? (await detectServiceName())
   if (!name) return { success: false, error: 'Service not found' }
 
-  // Step 1: try a graceful stop first (may fail if service is frozen or no admin)
-  await execFileAsync('sc.exe', ['stop', name], { timeoutMs: 8_000 }).catch(() => {})
+  // Step 1: Get PID before we touch anything
+  const queryEx = await execFileAsync('sc.exe', ['queryex', name], { timeoutMs: 10_000 })
+  const pid = parseServicePid(queryEx.stdout)
 
-  // Give it 2 seconds to stop gracefully
-  await new Promise(r => setTimeout(r, 2000))
+  // Step 2: Disable auto-restart so if we later need to kill, Windows won't restart it
+  // This is a fast operation (<1s)
+  await sudoExec(
+    `sc.exe failure "${name}" reset= 0 actions= ""\r\n`,
+    8_000
+  ).catch(() => {}) // Ignore if this fails (maybe already stopped)
 
-  // Step 2: Check if it actually stopped
-  const statusAfterGrace = await getServiceStatus(name)
-  if (statusAfterGrace.state === 'stopped') return { success: true, name }
+  // Step 3: Send graceful stop signal WITH elevation + wait up to 60 seconds
+  // This matches how services.msc works (it also waits indefinitely)
+  const stopScript =
+    `sc.exe stop "${name}"\r\n` +
+    `$waited = 0\r\n` +
+    `while ($waited -lt 60) {\r\n` +
+    `  Start-Sleep -Seconds 1\r\n` +
+    `  $waited++\r\n` +
+    `  $state = (sc.exe query "${name}" | Select-String "STATE").ToString()\r\n` +
+    `  if ($state -match "STOPPED") { break }\r\n` +
+    `}\r\n`
 
-  // Step 3: Still running → force kill via elevated PowerShell
-  try {
+  await sudoExec(stopScript, 75_000).catch(() => {})
+
+  // Step 4: Check if it actually stopped
+  const afterStop = await getServiceStatus(name)
+  if (afterStop.state === 'stopped') {
+    // Re-enable auto-restart now that we stopped gracefully
     await sudoExec(
-      `sc.exe failure ${name} reset= 0 actions= ""; ` +
-      `taskkill.exe /F /FI "SERVICES eq ${name}"; ` +
-      `taskkill.exe /F /IM "BalanceAgentService.exe"; ` +
-      `taskkill.exe /F /IM "BalenceAgentService.exe"; ` +
-      `Start-Sleep -Seconds 1; ` +
-      `sc.exe failure ${name} reset= 86400 actions= restart/5000/restart/5000/restart/5000`
-    )
+      `sc.exe failure "${name}" reset= 86400 actions= restart/5000/restart/5000/restart/5000\r\n`,
+      8_000
+    ).catch(() => {})
     return { success: true, name }
-  } catch (err) {
-    return { success: false, name, error: String(err) }
   }
+
+  // Step 5: Graceful stop timed out — force kill by PID (restart is already disabled)
+  if (pid) {
+    await sudoExec(
+      `Stop-Process -Id ${pid} -Force -ErrorAction SilentlyContinue\r\n` +
+      `Get-Process -Name "BalanceAgentService" -ErrorAction SilentlyContinue | Stop-Process -Force\r\n` +
+      `Get-Process -Name "BalenceAgentService" -ErrorAction SilentlyContinue | Stop-Process -Force\r\n`,
+      10_000
+    ).catch(() => {})
+  }
+
+  // Restore restart policy
+  await sudoExec(
+    `sc.exe failure "${name}" reset= 86400 actions= restart/5000/restart/5000/restart/5000\r\n`,
+    8_000
+  ).catch(() => {})
+
+  return { success: true, name }
 }
 
 export async function restartService(serviceName?: string): Promise<{ success: boolean; error?: string; name?: string }> {
