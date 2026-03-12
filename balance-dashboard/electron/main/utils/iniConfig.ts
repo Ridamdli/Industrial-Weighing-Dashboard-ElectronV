@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises'
+import fsSync from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import ini from 'ini'
@@ -16,9 +17,13 @@ const CONFIG_PATH = 'C:\\Windows\\SysWOW64\\balences.ini'
 async function cleanupDuplicates(dir: string, baseName: string) {
   try {
     const files = await fs.readdir(dir)
-    const duplicates = files.filter(f => f.startsWith('balences') && f.endsWith('.ini'))
+    const duplicates = files.filter(f => {
+      const lower = f.toLowerCase()
+      return (lower.startsWith('balance') || lower.startsWith('balence')) && lower.endsWith('.ini')
+    })
     
-    if (duplicates.length <= 1) return
+    if (duplicates.length === 1 && duplicates[0] === baseName) return
+    if (duplicates.length === 0) return
 
     const stats = await Promise.all(
       duplicates.map(async f => {
@@ -33,12 +38,41 @@ async function cleanupDuplicates(dir: string, baseName: string) {
     
     // Keep the first (most recent), rename to standard name if needed, delete others
     const keep = stats[0]
-    for (let i = 1; i < stats.length; i++) {
-        await fs.unlink(stats[i].path).catch(() => {})
+    const toDelete = stats.slice(1).map(s => s.path)
+    
+    let needsSudo = false
+    
+    for (const p of toDelete) {
+        try {
+            await fs.unlink(p)
+        } catch(e: unknown) {
+            const err = e as { code?: string }
+            if (err?.code === 'EPERM' || err?.code === 'EACCES') needsSudo = true
+        }
     }
 
     if (keep.file !== baseName) {
-      await fs.rename(keep.path, path.join(dir, baseName)).catch(() => {})
+      const target = path.join(dir, baseName)
+      try {
+          await fs.rename(keep.path, target)
+      } catch(e: unknown) {
+          const err = e as { code?: string }
+          if (err?.code === 'EPERM' || err?.code === 'EACCES') needsSudo = true
+      }
+    }
+    
+    if (needsSudo) {
+        let script = ''
+        for (const p of toDelete) {
+            script += `Remove-Item -LiteralPath '${p}' -Force -ErrorAction SilentlyContinue\r\n`
+        }
+        if (keep.file !== baseName) {
+            const target = path.join(dir, baseName)
+            script += `Move-Item -LiteralPath '${keep.path}' -Destination '${target}' -Force\r\n`
+        }
+        if (script) {
+            await sudoExec(script, 10000).catch(() => {})
+        }
     }
   } catch {
     // ignore
@@ -84,19 +118,25 @@ export async function writeIniConfig(
 
     const serialized = ini.stringify(mergedData as Record<string, unknown>)
     const dir = path.dirname(p)
-    await fs.mkdir(dir, { recursive: true }).catch(() => {})
+    try {
+      if (!fsSync.existsSync(dir)) {
+        fsSync.mkdirSync(dir, { recursive: true })
+      }
+    } catch {
+      // ignore errors if the directory already exists or cannot be created here
+    }
     
     await cleanupDuplicates(dir, 'balences.ini')
 
-    // Write file
+    // Write file using writeFileSync as specifically requested by user to reliably overwrite
     try {
-      await fs.writeFile(p, serialized, 'utf8')
+      fsSync.writeFileSync(p, serialized, 'utf8')
     } catch (e: unknown) {
       const err = e as { code?: string }
       if (err?.code === 'EPERM' || err?.code === 'EACCES' || err?.code === 'EXDEV') {
         // Fallback to sudo if direct write fails
         const tmp = path.join(os.tmpdir(), `balance_ini_${Date.now()}.tmp`)
-        await fs.writeFile(tmp, serialized, 'utf8')
+        fsSync.writeFileSync(tmp, serialized, 'utf8')
         const cmd = `move /y "${path.normalize(tmp)}" "${path.normalize(p)}"`
         await sudoExec(cmd)
       } else {

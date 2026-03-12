@@ -42,3 +42,10 @@ yarn.lock
 ../.vscode/*
 ../ai-rules 
 ../ai-rules/*
+
+# build
+/build
+/dist
+/dist-electron
+/out
+/release
