@@ -18,6 +18,9 @@ interface Window {
       list: () => Promise<Array<{ path: string; manufacturer?: string; serialNumber?: string; pnpId?: string; vendorId?: string; productId?: string; friendlyName?: string }>>
       test: (payload: { path: string; baudRate?: number }) => Promise<{ success: boolean; error?: string }>
     }
+    network: {
+      getIps: () => Promise<string[]>
+    }
     balance: {
       getHealth: () => Promise<{ ok: boolean; status: number; body: { status?: string; message?: string } | unknown }>
       getWeight: () => Promise<{ ok: boolean; status: number; body: { weight?: number; unit?: string; poids?: number; unite?: string; message?: string } | unknown }>

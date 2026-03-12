@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { CheckCircle2, ArrowRight, ArrowLeft, Play, Wrench } from 'lucide-react'
+import { CheckCircle2, ArrowRight, ArrowLeft, Play, Wrench, Network, Loader2 } from 'lucide-react'
 import { balanceApi } from '../api/balanceApi'
 import { cn } from '@/lib/utils'
 
@@ -35,6 +35,8 @@ export function SetupWizard() {
   const [launchDone, setLaunchDone] = useState(false)
   const [serviceMissing, setServiceMissing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [availableIps, setAvailableIps] = useState<string[]>([])
+  const [detectingHost, setDetectingHost] = useState(false)
 
   useEffect(() => {
     balanceApi.config.read().then(res => {
@@ -47,6 +49,8 @@ export function SetupWizard() {
         if (raw.Balance1?.BaudRate) setBaudRate(String(raw.Balance1.BaudRate))
       }
     }).catch(() => {})
+
+    balanceApi.network.getIps().then(ips => setAvailableIps(ips || [])).catch(() => {})
   }, [])
 
   const stepIndex = STEPS.findIndex(s => s.id === step)
@@ -116,27 +120,66 @@ export function SetupWizard() {
     }
     setSaving(false)
 
-    // Now start the service
+    // Now restart the service to apply changes
     setLaunching(true)
     try {
-      const res = await balanceApi.service.start()
+      const res = await balanceApi.service.restart()
       if (res.success) {
         setLaunchDone(true)
         setStep('finish')
       } else {
         // If error contains "not found" or similar, maybe it's not installed
         if (res.error?.toLowerCase().includes('service not found') || 
-            res.error?.toLowerCase().includes('n\'existe pas')) {
+            res.error?.toLowerCase().includes('n\'existe pas') ||
+            res.error?.toLowerCase().includes('specified service does not exist')) {
           setServiceMissing(true)
           setError("Le service n'est pas installé sur cette machine.")
         } else {
-          setError(res.error || "Échec du démarrage du service.")
+          setError(res.error || "Échec du démarrage/redémarrage du service.")
         }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLaunching(false)
+    }
+  }
+
+  const handleDetectHost = async () => {
+    setDetectingHost(true)
+    setError(null)
+    try {
+      if (availableIps.length === 0) {
+        const ips = await balanceApi.network.getIps()
+        setAvailableIps(ips || [])
+      }
+      const ipsToTest = availableIps.length > 0 ? [...availableIps] : await balanceApi.network.getIps() || []
+      if (!ipsToTest.includes('localhost')) ipsToTest.unshift('localhost')
+      if (!ipsToTest.includes('127.0.0.1')) ipsToTest.unshift('127.0.0.1')
+      
+      let found = false
+      for (const ip of ipsToTest) {
+        try {
+          // Trying each IP via native fetch with a short timeout
+          const res = await fetch(`http://${ip}:${apiPort}/api/health`, {
+            signal: AbortSignal.timeout(1500)
+          })
+          if (res.ok) {
+            setApiHost(ip)
+            found = true
+            break
+          }
+        } catch {
+          // Ignore timeout or connection refused
+        }
+      }
+      if (!found) {
+        setError("Impossible de détecter l'hôte API automatiquement. Le service est-il démarré ?")
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setDetectingHost(false)
     }
   }
 
@@ -275,13 +318,34 @@ export function SetupWizard() {
             <p className="text-muted-foreground">Paramètres de l'API REST exposée par le service Windows.</p>
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground block">Hôte (Host)</label>
-                <input
-                  type="text"
-                  value={apiHost}
-                  onChange={e => setApiHost(e.target.value)}
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-                />
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-muted-foreground block">Hôte (Host)</label>
+                  <button
+                    type="button"
+                    onClick={handleDetectHost}
+                    disabled={detectingHost}
+                    className="text-xs flex items-center gap-1.5 text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
+                  >
+                    {detectingHost ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Network className="w-3.5 h-3.5" />}
+                    Auto-détection
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={apiHost}
+                    onChange={e => setApiHost(e.target.value)}
+                    list="setup-ip-list"
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                  />
+                  <datalist id="setup-ip-list">
+                    <option value="localhost" />
+                    <option value="127.0.0.1" />
+                    {availableIps.map(ip => (
+                      <option key={ip} value={ip} />
+                    ))}
+                  </datalist>
+                </div>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground block">Port</label>

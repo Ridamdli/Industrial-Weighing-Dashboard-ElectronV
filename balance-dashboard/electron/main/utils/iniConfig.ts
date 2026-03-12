@@ -10,10 +10,7 @@ export type IniReadResult = {
   data: Record<string, unknown>
 }
 
-const DEFAULT_CONFIG_PATHS = [
-  'C:\\Windows\\SysWOW64\\balance.ini',
-  'C:\\Windows\\SysWOW64\\balances.ini',
-]
+const CONFIG_PATH = 'C:\\Windows\\SysWOW64\\balences.ini'
 
 async function fileExists(p: string): Promise<boolean> {
   try {
@@ -24,32 +21,51 @@ async function fileExists(p: string): Promise<boolean> {
   }
 }
 
-export async function detectDefaultConfigPath(): Promise<string> {
-  // 1. Check standard system paths
-  for (const p of DEFAULT_CONFIG_PATHS) {
-    if (await fileExists(p)) return p
-  }
+async function cleanupDuplicates(dir: string, baseName: string) {
+  try {
+    const files = await fs.readdir(dir)
+    const duplicates = files.filter(f => f.startsWith('balences') && f.endsWith('.ini'))
+    
+    if (duplicates.length <= 1) return
 
-  // 2. Check bundled resources (production)
-  const resourcesPath = (process as unknown as { resourcesPath: string }).resourcesPath
-  if (resourcesPath) {
-    const bundledPath = path.join(resourcesPath, 'balances.ini')
-    if (await fileExists(bundledPath)) return bundledPath
-  }
+    const stats = await Promise.all(
+      duplicates.map(async f => {
+        const fullPath = path.join(dir, f)
+        const stat = await fs.stat(fullPath)
+        return { file: f, path: fullPath, mtimeMs: stat.mtimeMs }
+      })
+    )
 
-  // 3. Fallback to app-local working dir (dev)
-  // Check for both balance.ini and balances.ini
-  const devPath = path.join(process.cwd(), 'balances.ini')
-  if (await fileExists(devPath)) return devPath
-  
-  return path.join(process.cwd(), 'balance.ini')
+    // Sort descending by modified time
+    stats.sort((a, b) => b.mtimeMs - a.mtimeMs)
+    
+    // Keep the first (most recent), rename to standard name if needed, delete others
+    const keep = stats[0]
+    for (let i = 1; i < stats.length; i++) {
+        await fs.unlink(stats[i].path).catch(() => {})
+    }
+
+    if (keep.file !== baseName) {
+      await fs.rename(keep.path, path.join(dir, baseName)).catch(() => {})
+    }
+  } catch {
+    // ignore
+  }
 }
 
+
 export async function readIniConfig(configPath?: string): Promise<IniReadResult> {
-  const p = configPath ?? (await detectDefaultConfigPath())
-  const raw = await fs.readFile(p, 'utf8')
-  const data = ini.parse(raw) as Record<string, unknown>
-  return { path: p, raw, data }
+  const p = CONFIG_PATH
+  const dir = path.dirname(p)
+  await cleanupDuplicates(dir, 'balences.ini')
+  
+  try {
+    const raw = await fs.readFile(p, 'utf8')
+    const data = ini.parse(raw) as Record<string, unknown>
+    return { path: p, raw, data }
+  } catch {
+    return { path: p, raw: '', data: {} }
+  }
 }
 
 export async function writeIniConfig(
@@ -57,12 +73,13 @@ export async function writeIniConfig(
   data: Record<string, unknown>,
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const p = CONFIG_PATH
     let existingData: Record<string, unknown> = {}
     try {
-      const { data: current } = await readIniConfig(configPath)
+      const { data: current } = await readIniConfig(p)
       existingData = current
     } catch {
-      // ignore if file doesn't exist
+      // ignore
     }
 
     const mergedData = { ...existingData }
@@ -75,23 +92,27 @@ export async function writeIniConfig(
     }
 
     const serialized = ini.stringify(mergedData as Record<string, unknown>)
-    const dir = path.dirname(configPath)
+    const dir = path.dirname(p)
     await fs.mkdir(dir, { recursive: true }).catch(() => {})
     
-    // Write tmp to os.tmpdir() to avoid EPERM when writing as standard user
-    const tmp = path.join(os.tmpdir(), `balance_ini_${Date.now()}.tmp`)
-    await fs.writeFile(tmp, serialized, 'utf8')
+    await cleanupDuplicates(dir, 'balences.ini')
+
+    // Write file
     try {
-      await fs.rename(tmp, configPath)
+      await fs.writeFile(p, serialized, 'utf8')
     } catch (e: unknown) {
       const err = e as { code?: string }
       if (err?.code === 'EPERM' || err?.code === 'EACCES' || err?.code === 'EXDEV') {
-        const cmd = `move /y "${path.normalize(tmp)}" "${path.normalize(configPath)}"`
+        // Fallback to sudo if direct write fails
+        const tmp = path.join(os.tmpdir(), `balance_ini_${Date.now()}.tmp`)
+        await fs.writeFile(tmp, serialized, 'utf8')
+        const cmd = `move /y "${path.normalize(tmp)}" "${path.normalize(p)}"`
         await sudoExec(cmd)
       } else {
         throw e
       }
     }
+    
     return { success: true }
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : String(e) }

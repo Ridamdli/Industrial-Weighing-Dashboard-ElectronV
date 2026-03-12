@@ -1,0 +1,19 @@
+  ΓÇó electron-builder  version=26.8.1 os=10.0.26200
+  ΓÇó loaded configuration  file=C:\Users\grimm\OneDrive\Desktop\BalanceAgentService\balance-dashboard\electron-builder.json
+  ΓÇó executing @electron/rebuild  electronVersion=41.0.0 arch=x64 buildFromSource=false workspaceRoot=C:\Users\grimm\OneDrive\Desktop\BalanceAgentService\balance-dashboard projectDir=./ appDir=./
+  ΓÇó installing native dependencies  arch=x64
+  ΓÇó preparing       moduleName=@serialport/bindings-cpp arch=x64
+  ΓÇó finished        moduleName=@serialport/bindings-cpp arch=x64
+  ΓÇó completed installing native dependencies
+  ΓÇó packaging       platform=win32 arch=x64 electron=41.0.0 appOutDir=dist\win-unpacked
+  ΓÇó searching for node modules  pm=npm searchDir=C:\Users\grimm\OneDrive\Desktop\BalanceAgentService\balance-dashboard
+(node:8112) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+  ΓÇó duplicate dependency references  dependencies=["@types/react@18.3.28","react@18.3.1","react@18.3.1","loose-envify@1.4.0","react@18.3.1","loose-envify@1.4.0","react-dom@18.3.1","react@18.3.1","react@18.3.1","react-redux@9.2.0","react@18.3.1","react-dom@18.3.1","@types/react@18.3.28","react@18.3.1","react@18.3.1","react@18.3.1","d3-array@3.2.4","d3-interpolate@3.0.1","d3-time@3.1.0","d3-time@3.1.0","d3-array@3.2.4","debug@4.4.3","is-glob@4.0.3","is-glob@4.0.3","is-glob@4.0.3","micromatch@4.0.8","is-glob@4.0.3","braces@3.0.3","postcss@8.5.8","resolve@1.22.11","postcss@8.5.8","postcss@8.5.8","postcss-selector-parser@6.1.2","postcss@8.5.8","@types/react@18.3.28","react@18.3.1"]
+  ΓÇó updating asar integrity executable resource  executablePath=dist\win-unpacked\Industrial Weighing Dashboard.exe
+  ΓÇó signing with signtool.exe  path=dist\win-unpacked\Industrial Weighing Dashboard.exe
+  ΓÇó building        target=nsis file=dist\Industrial Weighing Dashboard_2.2.0.exe archs=x64 oneClick=false perMachine=true
+  ΓÇó downloading     url=https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-3.0.4.1/nsis-3.0.4.1.7z size=1.3 MB parts=1
+  ΓÇó downloaded      url=https://github.com/electron-userland/electron-builder-binaries/releases/download/nsis-3.0.4.1/nsis-3.0.4.1.7z duration=6.931s
+  ΓÇó signing with signtool.exe  path=dist\win-unpacked\resources\elevate.exe
+  ΓÇó cancelled by SIGINT

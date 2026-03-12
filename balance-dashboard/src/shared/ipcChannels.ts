@@ -18,6 +18,9 @@ export const IPC_CHANNELS = {
     getWeight: 'balance:getWeight',
     getHealth: 'balance:getHealth',
   },
+  network: {
+    getIps: 'network:getIps',
+  },
   logs: {
     subscribe: 'logs:subscribe',
     unsubscribe: 'logs:unsubscribe',

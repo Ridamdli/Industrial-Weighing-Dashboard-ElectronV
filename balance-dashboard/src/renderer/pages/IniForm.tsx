@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Save, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Save, AlertTriangle, CheckCircle2, Network, Loader2 } from 'lucide-react'
 import { balanceApi } from '../api/balanceApi'
+import { AppUpdater } from '../components/AppUpdater'
 import { cn } from '@/lib/utils'
 
 export function IniForm() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  
+  const [availableIps, setAvailableIps] = useState<string[]>([])
+  const [detectingHost, setDetectingHost] = useState(false)
   
   const [configPath, setConfigPath] = useState('')
   const [config, setConfig] = useState({
@@ -24,7 +28,17 @@ export function IniForm() {
 
   useEffect(() => {
     fetchConfig()
+    fetchIps()
   }, [])
+
+  const fetchIps = async () => {
+    try {
+      const ips = await balanceApi.network.getIps()
+      setAvailableIps(ips || [])
+    } catch (e) {
+      console.error("Failed to fetch IPs", e)
+    }
+  }
 
   const fetchConfig = async () => {
     setLoading(true)
@@ -91,7 +105,13 @@ export function IniForm() {
 
       const res = await balanceApi.config.write(payload)
       if (res.success) {
-        setMessage({ type: 'success', text: 'Configuration sauvegardée. Veuillez redémarrer le service.' })
+        setMessage({ type: 'success', text: 'Configuration sauvegardée. Redémarrage du service en cours...' })
+        const restartRes = await balanceApi.service.restart()
+        if (restartRes.success) {
+          setMessage({ type: 'success', text: 'Configuration sauvegardée et service redémarré avec succès.' })
+        } else {
+          setMessage({ type: 'error', text: 'Configuration sauvegardée, mais échec du redémarrage du service : ' + (restartRes.error || '') })
+        }
       } else {
         setMessage({ type: 'error', text: res.error || 'Erreur lors de la sauvegarde.' })
       }
@@ -99,6 +119,44 @@ export function IniForm() {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : String(err) })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDetectHost = async () => {
+    setDetectingHost(true)
+    setMessage(null)
+    try {
+      if (availableIps.length === 0) {
+        await fetchIps()
+      }
+      const ipsToTest = [...availableIps]
+      if (!ipsToTest.includes('localhost')) ipsToTest.unshift('localhost')
+      if (!ipsToTest.includes('127.0.0.1')) ipsToTest.unshift('127.0.0.1')
+      
+      let found = false
+      for (const ip of ipsToTest) {
+        try {
+          // Trying each IP via native fetch with a short timeout
+          const res = await fetch(`http://${ip}:${config.api_port}/api/health`, {
+            signal: AbortSignal.timeout(1500)
+          })
+          if (res.ok) {
+            setConfig(s => ({ ...s, api_host: ip }))
+            setMessage({ type: 'success', text: `Hôte API détecté avec succès : ${ip}` })
+            found = true
+            break
+          }
+        } catch {
+          // Ignore timeout or connection refused
+        }
+      }
+      if (!found) {
+        setMessage({ type: 'error', text: "Impossible de détecter l'hôte API automatiquement. Le service est-il démarré ?" })
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setDetectingHost(false)
     }
   }
 
@@ -131,13 +189,34 @@ export function IniForm() {
           <h2 className="text-lg font-medium border-b border-border pb-2">Paramètres Serveur API</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground block">Hôte (Host)</label>
-              <input 
-                type="text" 
-                value={config.api_host}
-                onChange={e => setConfig(s => ({ ...s, api_host: e.target.value }))}
-                className="w-full h-10 px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-              />
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-muted-foreground block">Hôte (Host)</label>
+                <button
+                  type="button"
+                  onClick={handleDetectHost}
+                  disabled={detectingHost || loading}
+                  className="text-xs flex items-center gap-1.5 text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
+                >
+                  {detectingHost ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Network className="w-3.5 h-3.5" />}
+                  Auto-détection
+                </button>
+              </div>
+              <div className="relative">
+                <input 
+                  type="text" 
+                  value={config.api_host}
+                  onChange={e => setConfig(s => ({ ...s, api_host: e.target.value }))}
+                  list="ip-list"
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                />
+                <datalist id="ip-list">
+                  <option value="localhost" />
+                  <option value="127.0.0.1" />
+                  {availableIps.map(ip => (
+                    <option key={ip} value={ip} />
+                  ))}
+                </datalist>
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground block">Port</label>
@@ -225,6 +304,10 @@ export function IniForm() {
           </button>
         </div>
       </form>
+
+      <div className="mt-8">
+        <AppUpdater />
+      </div>
     </div>
   )
 }

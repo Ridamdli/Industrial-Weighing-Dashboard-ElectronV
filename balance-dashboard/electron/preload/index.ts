@@ -21,6 +21,9 @@ contextBridge.exposeInMainWorld('api', {
     read: (configPath?: string) => ipcRenderer.invoke(IPC_CHANNELS.config.read, configPath),
     write: (payload: { path: string; data: Record<string, unknown> }) => ipcRenderer.invoke(IPC_CHANNELS.config.write, payload),
   },
+  network: {
+    getIps: () => ipcRenderer.invoke(IPC_CHANNELS.network.getIps),
+  },
   comPorts: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.comPorts.list),
     test: (payload: { path: string; baudRate?: number }) => ipcRenderer.invoke(IPC_CHANNELS.comPorts.test, payload),

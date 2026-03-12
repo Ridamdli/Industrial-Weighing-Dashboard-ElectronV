@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import os from 'node:os'
 import { IPC_CHANNELS } from '../../../src/shared/ipcChannels'
 import { fetchWithTimeout } from '../utils/http'
 import { readIniConfig } from '../utils/iniConfig'
@@ -64,6 +65,19 @@ export function registerApiHandlers() {
     } catch (e) {
       return { ok: false, status: 0, body: { message: e instanceof Error ? e.message : String(e) } }
     }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.network.getIps, () => {
+    const interfaces = os.networkInterfaces()
+    const ips: string[] = []
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name] || []) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          ips.push(iface.address)
+        }
+      }
+    }
+    return ips
   })
 }
 

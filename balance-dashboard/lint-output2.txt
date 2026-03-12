@@ -1,5 +1,0 @@
-npm warn Unknown project config "shamefully-hoist". This will stop working in the next major version of npm.
-
-> industrial-weighing-dashboard@2.2.0 lint
-> eslint .
-

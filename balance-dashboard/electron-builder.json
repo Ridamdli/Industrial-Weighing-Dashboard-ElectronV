@@ -4,7 +4,7 @@
   "productName": "Industrial Weighing Dashboard",
   "asar": true,
   "directories": {
-    "output": "release/${version}"
+    "output": "dist"
   },
   "files": [
     "dist-electron/**",
@@ -12,8 +12,8 @@
   ],
   "extraResources": [
     {
-      "from": "../balances.ini",
-      "to": "balances.ini"
+      "from": "../balences.ini",
+      "to": "balences.ini"
     },
     {
       "from": "../install.bat",
@@ -28,9 +28,11 @@
     "target": [
       {
         "target": "nsis",
-        "arch": [
-          "x64"
-        ]
+        "arch": ["x64"]
+      },
+      {
+        "target": "msi",
+        "arch": ["x64"]
       }
     ],
     "artifactName": "${productName}_${version}.${ext}",
@@ -43,6 +45,21 @@
     "deleteAppDataOnUninstall": false,
     "installerIcon": "build/icon.ico",
     "uninstallerIcon": "build/icon.ico",
-    "allowElevation": true
-  }
+    "allowElevation": true,
+    "include": "build/installer.nsh",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "menuCategory": "Industrial Weighing Dashboard"
+  },
+  "msi": {
+    "createDesktopShortcut": true,
+    "warningsAsErrors": false
+  },
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "RidaGrimmer",
+      "repo": "BalanceAgentDashboard"
+    }
+  ]
 }
