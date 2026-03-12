@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Save, AlertTriangle, CheckCircle2, Network, Loader2 } from 'lucide-react'
+import { Save, AlertTriangle, CheckCircle2, Network, Loader2, RefreshCw } from 'lucide-react'
 import { balanceApi } from '../api/balanceApi'
 import { AppUpdater } from '../components/AppUpdater'
 import { cn } from '@/lib/utils'
@@ -11,6 +11,10 @@ export function IniForm() {
   
   const [availableIps, setAvailableIps] = useState<string[]>([])
   const [detectingHost, setDetectingHost] = useState(false)
+
+  type PortInfo = { path: string; friendlyName?: string; manufacturer?: string }
+  const [ports, setPorts] = useState<PortInfo[]>([])
+  const [scanningPorts, setScanningPorts] = useState(false)
   
   const [configPath, setConfigPath] = useState('')
   const [config, setConfig] = useState({
@@ -37,6 +41,18 @@ export function IniForm() {
       setAvailableIps(ips || [])
     } catch (e) {
       console.error("Failed to fetch IPs", e)
+    }
+  }
+
+  const scanPorts = async () => {
+    setScanningPorts(true)
+    try {
+      const res = await balanceApi.comPorts.list()
+      if (Array.isArray(res)) setPorts(res as PortInfo[])
+    } catch {
+      // silent
+    } finally {
+      setScanningPorts(false)
     }
   }
 
@@ -195,7 +211,7 @@ export function IniForm() {
                   type="button"
                   onClick={handleDetectHost}
                   disabled={detectingHost || loading}
-                  className="text-xs flex items-center gap-1.5 text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-primary/40 text-primary hover:bg-primary/10 disabled:opacity-50 transition-all"
                 >
                   {detectingHost ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Network className="w-3.5 h-3.5" />}
                   Auto-détection
@@ -234,14 +250,33 @@ export function IniForm() {
           <h2 className="text-lg font-medium border-b border-border pb-2">Connexion Balance Série</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground block">Port COM <span className="text-destructive">*</span></label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-muted-foreground block">Port COM <span className="text-destructive">*</span></label>
+                <button
+                  type="button"
+                  onClick={scanPorts}
+                  disabled={scanningPorts || loading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border hover:bg-accent disabled:opacity-50 transition-all"
+                >
+                  {scanningPorts ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  Scanner les ports
+                </button>
+              </div>
               <input 
                 type="text" 
                 value={config.balance_com_port}
                 onChange={e => setConfig(s => ({ ...s, balance_com_port: e.target.value }))}
                 placeholder="ex: COM1"
+                list="com-port-list"
                 className="w-full h-10 px-3 rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
               />
+              <datalist id="com-port-list">
+                {ports.map(p => (
+                  <option key={p.path} value={p.path}>
+                    {p.friendlyName ? `${p.path} – ${p.friendlyName}` : p.path}
+                  </option>
+                ))}
+              </datalist>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground block">Baud Rate</label>
