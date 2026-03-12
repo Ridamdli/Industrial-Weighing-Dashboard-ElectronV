@@ -387,7 +387,7 @@ export function SetupWizard() {
             ) : (
               <div className="space-y-4">
                 <p className="text-muted-foreground">
-                  La configuration sera sauvegardée dans <code className="bg-muted px-1 rounded">balences.ini</code> puis le service sera démarré automatiquement.
+                  La configuration sera sauvegardée dans <code className="bg-muted px-1 rounded">balances.ini</code> puis le service sera démarré automatiquement.
                 </p>
                 <div className="p-4 bg-muted/50 rounded-lg border border-border text-sm space-y-1">
                   <div><span className="text-muted-foreground">Port COM:</span> <span className="font-mono font-bold">{selectedPort || '(non défini)'}</span></div>

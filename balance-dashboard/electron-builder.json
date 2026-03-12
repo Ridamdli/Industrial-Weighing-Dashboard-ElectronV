@@ -12,8 +12,8 @@
   ],
   "extraResources": [
     {
-      "from": "../balences.ini",
-      "to": "balences.ini"
+      "from": "../balances.ini",
+      "to": "balances.ini"
     },
     {
       "from": "../install.bat",
@@ -28,10 +28,6 @@
     "target": [
       {
         "target": "nsis",
-        "arch": ["x64"]
-      },
-      {
-        "target": "msi",
         "arch": ["x64"]
       }
     ],

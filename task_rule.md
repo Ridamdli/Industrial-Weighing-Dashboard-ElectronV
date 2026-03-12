@@ -150,7 +150,7 @@ Service Management
 (sc.exe control of BalanceAgentService)
 
 Configuration Manager
-(balance.ini read/write)
+(balances.ini read/write)
 
 COM Port Management
 (serialport usage)

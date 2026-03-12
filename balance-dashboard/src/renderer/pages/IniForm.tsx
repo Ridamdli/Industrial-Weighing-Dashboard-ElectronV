@@ -169,7 +169,7 @@ export function IniForm() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Configuration</h1>
         <p className="text-muted-foreground mt-2">
-          Gérer les paramètres du service et la connexion à la balance (balance.ini).
+          Gérer les paramètres du service et la connexion à la balance (balances.ini).
         </p>
       </div>
 

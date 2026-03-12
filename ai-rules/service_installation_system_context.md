@@ -10,7 +10,7 @@ The AI agent must understand this context before implementing any installer or s
 The internship supervisor provided a compressed package containing three important files:
 
 BalenceAgentService.exe
-balance.ini
+balances.ini
 install.bat
 
 These files are used to install and configure the balance service that communicates with an industrial weighing scale.
@@ -61,7 +61,7 @@ Step 1 – Configure the COM port
 
 Open the file:
 
-balance.ini
+balances.ini
 
 Modify the COM port parameter to match the port connected to the scale.
 
@@ -73,7 +73,7 @@ port=COM7
 
 Step 2 – Place configuration file
 
-The balance.ini file must be copied to the following Windows directory:
+The balances.ini file must be copied to the following Windows directory:
 
 C:\Windows\SysWOW64
 
@@ -101,7 +101,7 @@ This folder will contain:
 
 BalenceAgentService.exe
 install.bat
-balance.ini (optional backup)
+balances.ini (optional backup)
 
 ---
 
@@ -127,9 +127,9 @@ Administrator privileges are required for this step.
 
 The service reads its configuration from:
 
-C:\Windows\SysWOW64\balance.ini
+C:\Windows\SysWOW64\balances.ini
 
-The copy of balance.ini inside the SDI folder may only serve as a backup.
+The copy of balances.ini inside the SDI folder may only serve as a backup.
 
 The install.bat script must be executed with "Run as Administrator".
 
@@ -173,7 +173,7 @@ The installer wizard must NOT:
 * detect COM ports
 * test scale connections
 * modify port configuration
-* change balance.ini settings
+* change balances.ini settings
 * start/stop the service for configuration purposes
 * interact with hardware devices
 
@@ -189,7 +189,7 @@ Manual process:
 
 1. Copy configuration file
 
-balance.ini → C:\Windows\SysWOW64
+balances.ini → C:\Windows\SysWOW64
 
 2. Create service directory
 
@@ -229,7 +229,7 @@ All system configuration and management must be handled by the **Electron Dashbo
 The dashboard will later provide:
 
 * service start / stop
-* editing balance.ini
+* editing balances.ini
 * COM port configuration
 * logs visualization
 * system status monitoring

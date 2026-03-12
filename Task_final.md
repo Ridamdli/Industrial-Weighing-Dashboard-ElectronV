@@ -104,7 +104,7 @@ If already installed:
 
 # CONFIGURATION FILE
 
-Ensure that balance.ini exists.
+Ensure that balances.ini exists.
 
 If missing:
 
@@ -112,7 +112,7 @@ create it automatically during installation.
 
 Location preference:
 
-C:\Windows\SysWOW64\balance.ini
+C:\Windows\SysWOW64\balances.ini
 
 Fallback for dev environments allowed.
 

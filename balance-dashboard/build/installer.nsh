@@ -15,11 +15,11 @@
   CopyFiles "$INSTDIR\resources\BalanceAgentService.exe" "C:\inetpub\SDI\BalanceAgentService.exe"
   CopyFiles "$INSTDIR\resources\install.bat" "C:\inetpub\SDI\install.bat"
 
-  ; --- 3. Write balences.ini to SysWOW64 if it does not already exist ---
-  IfFileExists "C:\Windows\SysWOW64\balences.ini" ini_exists ini_missing
+  ; --- 3. Write balances.ini to SysWOW64 if it does not already exist ---
+  IfFileExists "C:\Windows\SysWOW64\balances.ini" ini_exists ini_missing
 
   ini_missing:
-    FileOpen $0 "C:\Windows\SysWOW64\balences.ini" w
+    FileOpen $0 "C:\Windows\SysWOW64\balances.ini" w
     FileWrite $0 "[Balances]$\r$\n"
     FileWrite $0 "NombreBalances=1$\r$\n"
     FileWrite $0 "$\r$\n"
@@ -89,7 +89,7 @@
   ; --- 4. Remove the firewall rule ---
   nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="Balance Agent Service API"'
 
-  ; NOTE: C:\Windows\SysWOW64\balences.ini is intentionally NOT removed
+  ; NOTE: C:\Windows\SysWOW64\balances.ini is intentionally NOT removed
   ; to preserve user configuration for potential re-installation.
 
 !macroend

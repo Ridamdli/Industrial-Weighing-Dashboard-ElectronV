@@ -11,7 +11,7 @@ export type IniReadResult = {
   data: Record<string, unknown>
 }
 
-const CONFIG_PATH = 'C:\\Windows\\SysWOW64\\balences.ini'
+const CONFIG_PATH = 'C:\\Windows\\SysWOW64\\balances.ini'
 
 
 async function cleanupDuplicates(dir: string, baseName: string) {
@@ -83,7 +83,7 @@ async function cleanupDuplicates(dir: string, baseName: string) {
 export async function readIniConfig(): Promise<IniReadResult> {
   const p = CONFIG_PATH
   const dir = path.dirname(p)
-  await cleanupDuplicates(dir, 'balences.ini')
+  await cleanupDuplicates(dir, 'balances.ini')
   
   try {
     const raw = await fs.readFile(p, 'utf8')
@@ -126,7 +126,7 @@ export async function writeIniConfig(
       // ignore errors if the directory already exists or cannot be created here
     }
     
-    await cleanupDuplicates(dir, 'balences.ini')
+    await cleanupDuplicates(dir, 'balances.ini')
 
     // Write file using writeFileSync as specifically requested by user to reliably overwrite
     try {
@@ -137,7 +137,7 @@ export async function writeIniConfig(
         // Fallback to sudo if direct write fails
         const tmp = path.join(os.tmpdir(), `balance_ini_${Date.now()}.tmp`)
         fsSync.writeFileSync(tmp, serialized, 'utf8')
-        const cmd = `move /y "${path.normalize(tmp)}" "${path.normalize(p)}"`
+        const cmd = `Move-Item -Path '${path.normalize(tmp)}' -Destination '${path.normalize(p)}' -Force`
         await sudoExec(cmd)
       } else {
         throw e

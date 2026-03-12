@@ -17,7 +17,7 @@ The Balance Agent Service RJ45 service could not be stopped.
 ´´´
 
 2. In Configuration
-Gérer les paramètres du service et la connexion à la balance (balance.ini).
+Gérer les paramètres du service et la connexion à la balance (balances.ini).
 
 When i put Paramètres Serveur API
 Hôte (Host) from localhost to [IP_ADDRESS] and click on Enregistrer i get this error:

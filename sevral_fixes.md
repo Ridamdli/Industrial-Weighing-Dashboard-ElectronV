@@ -11,31 +11,31 @@ ISSUE 1 — CONFIG FILE DUPLICATION
 
 The installer currently creates two files:
 
-C:\Windows\SysWOW64\balences.ini
-C:\Windows\SysWOW64\balance.ini
+C:\Windows\SysWOW64\balances.ini
+C:\Windows\SysWOW64\balances.ini
 
 This is incorrect.
 
 The system must use only ONE configuration file:
 
-C:\Windows\SysWOW64\balences.ini
+C:\Windows\SysWOW64\balances.ini
 
 Required changes:
 
 1. The Electron dashboard must read configuration ONLY from:
 
-C:\Windows\SysWOW64\balences.ini
+C:\Windows\SysWOW64\balances.ini
 
 2. The dashboard must write configuration ONLY to that file.
 
 3. Remove any references to:
 
 * blence.ini
-* balance.ini
+* balances.ini
 
-4. The installer must only create balences.ini.
+4. The installer must only create balances.ini.
 
-5. The .NET service already reads balences.ini and must remain unchanged.
+5. The .NET service already reads balances.ini and must remain unchanged.
 
 ---
 
@@ -94,7 +94,7 @@ When the user presses Save in the dashboard:
 
 1. All settings must be written to:
 
-C:\Windows\SysWOW64\balences.ini
+C:\Windows\SysWOW64\balances.ini
 
 2. After saving configuration, the application must:
 
@@ -141,7 +141,7 @@ VALIDATION
 After implementing the changes:
 
 1. Ensure the installer still works correctly.
-2. Ensure only balences.ini exists.
+2. Ensure only balances.ini exists.
 3. Verify that configuration updates affect the running service.
 4. Verify API host detection works.
 5. Verify update system works without breaking packaging.
