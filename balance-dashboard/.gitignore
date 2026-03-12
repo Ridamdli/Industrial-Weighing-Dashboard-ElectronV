@@ -30,3 +30,15 @@ yarn.lock
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# folders
+../.amazonq
+../.amazonq/*
+../.venv
+../.venv/*
+../.qodo
+../.qodo/*
+../.vscode
+../.vscode/*
+../ai-rules 
+../ai-rules/*

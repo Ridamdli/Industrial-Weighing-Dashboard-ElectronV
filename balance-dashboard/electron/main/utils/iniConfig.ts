@@ -12,14 +12,6 @@ export type IniReadResult = {
 
 const CONFIG_PATH = 'C:\\Windows\\SysWOW64\\balences.ini'
 
-async function fileExists(p: string): Promise<boolean> {
-  try {
-    await fs.access(p)
-    return true
-  } catch {
-    return false
-  }
-}
 
 async function cleanupDuplicates(dir: string, baseName: string) {
   try {
@@ -54,7 +46,7 @@ async function cleanupDuplicates(dir: string, baseName: string) {
 }
 
 
-export async function readIniConfig(configPath?: string): Promise<IniReadResult> {
+export async function readIniConfig(): Promise<IniReadResult> {
   const p = CONFIG_PATH
   const dir = path.dirname(p)
   await cleanupDuplicates(dir, 'balences.ini')
@@ -69,14 +61,13 @@ export async function readIniConfig(configPath?: string): Promise<IniReadResult>
 }
 
 export async function writeIniConfig(
-  configPath: string,
   data: Record<string, unknown>,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const p = CONFIG_PATH
     let existingData: Record<string, unknown> = {}
     try {
-      const { data: current } = await readIniConfig(p)
+      const { data: current } = await readIniConfig()
       existingData = current
     } catch {
       // ignore

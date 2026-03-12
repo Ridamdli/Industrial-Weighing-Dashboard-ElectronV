@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Download, RefreshCw, AlertCircle, CheckCircle, PackageSearch } from 'lucide-react'
 import { balanceApi } from '../api/balanceApi'
-import { cn } from '@/lib/utils'
 
 export function AppUpdater() {
   const [status, setStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'>('idle')
