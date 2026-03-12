@@ -3,12 +3,31 @@
   "appId": "com.balance.industrial-weighing-dashboard",
   "productName": "Industrial Weighing Dashboard",
   "asar": true,
+  "asarUnpack": [
+    "node_modules/@serialport/bindings-cpp/**"
+  ],
+  "electronLanguages": ["en-US"],
+  "compression": "maximum",
   "directories": {
     "output": "dist"
   },
   "files": [
     "dist-electron/**",
-    "dist/**"
+    "dist/**",
+    "!**/*.map",
+    "!**/*.ts",
+    "!**/*.d.ts",
+    "!**/*.md",
+    "!**/test/**",
+    "!**/tests/**",
+    "!**/__tests__/**",
+    "!**/spec/**",
+    "!**/docs/**",
+    "!**/example/**",
+    "!**/examples/**",
+    "!**/benchmark/**",
+    "!**/coverage/**",
+    "!**/node_modules/**"
   ],
   "extraResources": [
     {
