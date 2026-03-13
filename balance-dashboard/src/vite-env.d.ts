@@ -40,5 +40,11 @@ interface Window {
       onDownloadProgress: (listener: (payload: import('electron-updater').ProgressInfo) => void) => () => void
       onDownloaded: (listener: () => void) => () => void
     }
+    history: {
+      get: () => Promise<Array<{ id: string; balanceName: string; weight: number; unit: string; timestamp: string }>>
+      add: (record: { balanceName: string; weight: number; unit: string; timestamp: string }) => Promise<{ id: string; balanceName: string; weight: number; unit: string; timestamp: string } | null>
+      clear: () => Promise<void>
+      export: () => Promise<boolean>
+    }
   }
 }

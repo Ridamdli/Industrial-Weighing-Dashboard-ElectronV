@@ -51,6 +51,12 @@ contextBridge.exposeInMainWorld('api', {
     onDownloaded: (listener: Listener<void>) =>
       on(IPC_CHANNELS.updater.downloaded, listener),
   },
+  history: {
+    get: () => ipcRenderer.invoke(IPC_CHANNELS.history.get),
+    add: (record: unknown) => ipcRenderer.invoke(IPC_CHANNELS.history.add, record),
+    clear: () => ipcRenderer.invoke(IPC_CHANNELS.history.clear),
+    export: () => ipcRenderer.invoke(IPC_CHANNELS.history.export),
+  },
 })
 
 // --------- Preload scripts loading ---------

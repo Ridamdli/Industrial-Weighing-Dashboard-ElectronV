@@ -39,4 +39,10 @@ export const balanceApi = {
     onDownloadProgress: (listener: (payload: import('electron-updater').ProgressInfo) => void) => window.api.updater.onDownloadProgress(listener),
     onDownloaded: (listener: () => void) => window.api.updater.onDownloaded(listener),
   },
+  history: {
+    get: () => window.api.history.get(),
+    add: (record: { balanceName: string; weight: number; unit: string; timestamp: string }) => window.api.history.add(record),
+    clear: () => window.api.history.clear(),
+    export: () => window.api.history.export(),
+  },
 }

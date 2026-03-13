@@ -39,6 +39,12 @@ export const IPC_CHANNELS = {
   demo: {
     mainProcessMessage: 'main-process-message',
   },
+  history: {
+    get: 'history:get',
+    add: 'history:add',
+    clear: 'history:clear',
+    export: 'history:export',
+  },
 } as const
 
 export type IpcChannel =

@@ -13,6 +13,7 @@ import { IniForm } from './renderer/pages/IniForm'
 import { ComPortDetector } from './renderer/pages/ComPortDetector'
 import { LogsViewer } from './renderer/pages/LogsViewer'
 import { SetupWizard } from './renderer/pages/SetupWizard'
+import { BalanceHistoryTable } from './renderer/components/BalanceHistoryTable'
 import './App.css'
 
 function Dashboard() {
@@ -69,6 +70,10 @@ function Dashboard() {
         <div className="lg:col-span-2">
           <LiveWeightChart />
         </div>
+      </div>
+
+      <div>
+        <BalanceHistoryTable />
       </div>
     </div>
   )
