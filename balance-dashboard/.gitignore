@@ -43,6 +43,9 @@ yarn.lock
 ../ai-rules 
 ../ai-rules/*
 
+# ../*.md
+../Plan_v1___Electron_to_Tauri_Migration.md
+
 # build
 /build
 /dist
