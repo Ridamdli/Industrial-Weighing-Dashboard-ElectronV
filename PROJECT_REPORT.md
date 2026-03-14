@@ -628,3 +628,226 @@ graph TD
     RUI[Renderer UI] -->|fetch recent| HM
     HM --> RUI
 ```
+
+---
+
+## 15. Project Structure Architecture
+
+### 15.1 Repository Layout (Tree)
+
+```mermaid
+graph TD
+  A[BalanceAgentService (root)]
+  A --> B[balance-dashboard/]
+  A --> C[ScaleSimulator/]
+  A --> D[balances.ini]
+  A --> E[install.bat]
+  A --> F[BalanceAgentService.sln]
+  A --> G[README.md]
+  A --> H[PROJECT_REPORT.md]
+
+  B --> B1[electron/]
+  B1 --> B1a[main/]
+  B1a --> B1a1[ipc/]
+  B1a1 -->|handlers| B1a1a[apiHandlers.ts]
+  B1a1 --> B1a1b[serviceHandlers.ts]
+  B1a1 --> B1a1c[configHandlers.ts]
+  B1a1 --> B1a1d[comPortHandlers.ts]
+  B1a1 --> B1a1e[logHandlers.ts]
+  B1a1 --> B1a1f[historyHandlers.ts]
+  B1a --> B1a2[utils/]
+  B1a2 --> B1a2a[serviceManager.ts]
+  B1a2 --> B1a2b[iniConfig.ts]
+  B1a2 --> B1a2c[comPorts.ts]
+  B1a2 --> B1a2d[http.ts]
+  B1a2 --> B1a2e[historyManager.ts]
+  B1a2 --> B1a2f[exec.ts]
+  B1a2 --> B1a2g[sudoExec.ts]
+  B1a --> B1a3[index.ts]
+  B --> B2[preload/]
+  B2 --> B2a[index.ts]
+  B --> B3[src/renderer/]
+  B3 --> B3a[api/balanceApi.ts]
+  B3 --> B3b[hooks/useWeightPolling.ts]
+  B3 --> B3c[store/appStore.ts]
+  B3 --> B3d[pages/]
+  B3d --> B3d1[Dashboard related pages]
+  B3d --> B3d2[ServiceControl.tsx]
+  B3d --> B3d3[IniForm.tsx]
+  B3d --> B3d4[LogsViewer.tsx]
+  B3d --> B3d5[ComPortDetector.tsx]
+  B3d --> B3d6[SetupWizard.tsx]
+  B3 --> B3e[components/]
+  B3e --> B3e1[WeightGauge.tsx]
+  B3e --> B3e2[LiveWeightChart.tsx]
+  B3e --> B3e3[StatusBadge.tsx]
+  B3e --> B3e4[BalanceHistoryTable.tsx]
+  B --> B4[build & config]
+  B4 --> B4a[electron-builder.json]
+  B4 --> B4b[vite.config.ts]
+  B4 --> B4c[tsconfig.json]
+  B4 --> B4d[tailwind.config.js]
+  B4 --> B4e[eslint.config.js]
+
+  C --> C1[scale_simulator.py]
+  C --> C2[requirements.txt]
+  C --> C3[README.md]
+```
+
+### 15.2 Component-to-Directory Mapping
+
+- Root
+  - balances.ini: Runtime configuration for service
+  - install.bat: Windows service installation
+  - BalanceAgentService.sln: .NET service solution
+  - PROJECT_REPORT.md: Comprehensive documentation and diagrams
+
+- balance-dashboard/
+  - electron/main/ipc: IPC handler registration for OS/API operations
+  - electron/main/utils: OS, INI, HTTP, COM, history, and elevation helpers
+  - electron/preload: contextBridge exposing a safe API surface
+  - src/renderer: React application
+    - api: Typed wrappers calling window.api
+    - hooks: Polling and data acquisition logic
+    - pages: UI pages (Dashboard, ServiceControl, Config, Logs, Setup)
+    - components: Reusable UI widgets (gauge, chart, status, tables)
+  - Build & Config: Builder, bundler, linter, and styling configs
+
+- ScaleSimulator/
+  - Python-based simulator to emulate scale traffic for development/testing
+
+### 15.3 Data and Control Flows Across Structure
+
+- Renderer (src/renderer) → Preload (preload/index.ts) → Main (electron/main/ipc/*) → Utilities (electron/main/utils/*) →
+  - Windows (SCM/COM/Event Log/FS) and
+  - Service REST API (<http://localhost:5001>)
+- Logs and history flow back from Main to Renderer via dedicated IPC push channels.
+
+### 15.4 Ownership and Boundaries
+
+- Renderer: Pure UI logic, no Node or OS access directly
+- Preload: Narrow surface, type-safe bridge
+- Main: All side effects and integrations
+- Utilities: Focused modules with single responsibility
+- Service: External system providing REST data and consuming balances.ini
+
+### 15.5 Directory Tree (ASCII)
+
+```text
+BalanceAgentService/
+├─ ai-rules/
+│  └─ agent_rules.md
+├─ balance-dashboard/
+│  ├─ electron/
+│  │  ├─ main/
+│  │  │  ├─ ipc/
+│  │  │  │  ├─ apiHandlers.ts
+│  │  │  │  ├─ comPortHandlers.ts
+│  │  │  │  ├─ configHandlers.ts
+│  │  │  │  ├─ historyHandlers.ts
+│  │  │  │  ├─ index.ts
+│  │  │  │  ├─ logHandlers.ts
+│  │  │  │  └─ serviceHandlers.ts
+│  │  │  ├─ utils/
+│  │  │  │  ├─ comPorts.ts
+│  │  │  │  ├─ exec.ts
+│  │  │  │  ├─ historyManager.ts
+│  │  │  │  ├─ http.ts
+│  │  │  │  ├─ iniConfig.ts
+│  │  │  │  ├─ serviceManager.ts
+│  │  │  │  └─ sudoExec.ts
+│  │  │  ├─ index.ts
+│  │  │  └─ update.ts
+│  │  ├─ preload/
+│  │  │  └─ index.ts
+│  │  └─ electron-env.d.ts
+│  ├─ public/
+│  │  ├─ favicon.ico
+│  │  └─ node.svg
+│  ├─ src/
+│  │  ├─ assets/
+│  │  │  ├─ logo-electron.svg
+│  │  │  ├─ logo-v1.svg
+│  │  │  └─ logo-vite.svg
+│  │  ├─ components/
+│  │  │  ├─ update/
+│  │  │  │  ├─ Modal/
+│  │  │  │  │  ├─ index.tsx
+│  │  │  │  │  └─ modal.css
+│  │  │  │  ├─ Progress/
+│  │  ���  │  │  ├─ index.tsx
+│  │  │  │  │  └─ progress.css
+│  │  │  │  ├─ index.tsx
+│  │  │  │  ├─ README.md
+│  │  │  │  ├─ README.zh-CN.md
+│  │  │  │  └─ update.css
+│  │  │  ├─ LiveWeightChart.tsx
+│  │  │  ├─ StatusBadge.tsx
+│  │  │  └─ WeightGauge.tsx
+│  │  ├─ demos/
+│  │  │  └─ node.ts
+│  │  ├─ lib/
+│  │  │  └─ utils.ts
+│  │  ├─ renderer/
+│  │  │  ├─ api/
+│  │  │  │  └─ balanceApi.ts
+│  │  │  ├─ components/
+│  │  │  │  ├─ AppUpdater.tsx
+│  │  │  │  └─ BalanceHistoryTable.tsx
+│  │  │  ├─ hooks/
+│  │  │  │  └─ useWeightPolling.ts
+│  │  │  ├─ pages/
+│  │  │  │  ├─ ComPortDetector.tsx
+│  │  │  │  ├─ IniForm.tsx
+│  │  │  │  ├─ LogsViewer.tsx
+│  │  │  │  ├─ ServiceControl.tsx
+│  │  │  │  └─ SetupWizard.tsx
+│  │  │  └─ store/
+│  │  │     └─ appStore.ts
+│  │  ├─ shared/
+│  │  │  └─ ipcChannels.ts
+│  │  └─ type/
+│  │     └─ electron-updater.d.ts
+│  ├─ test/
+│  │  ├─ screenshots/
+│  │  │  └─ e2e.png
+│  │  ├─ e2e.spec.ts
+│  │  └─ smoke.test.ts
+│  ├─ .gitignore
+│  ├─ .npmrc
+│  ├─ .playwright.config.txt
+│  ├─ .vite.config.flat.txt
+│  ├─ App.css
+│  ├─ App.tsx
+│  ├─ clean_log.txt
+│  ├─ dev_logs.txt
+│  ├─ dist_log.txt
+│  ├─ electron-builder.json
+│  ├─ electron-vite-react-debug.gif
+│  ├─ electron-vite-react.gif
+│  ├─ eslint.config.js
+│  ├─ index.html
+│  ├─ index.css
+│  ├─ LICENSE
+│  ├─ main.tsx
+│  ├─ package.json
+│  ├─ postcss.config.cjs
+│  ├─ README.md
+│  ├─ tailwind.config.js
+│  ├─ test-output.txt
+│  ├─ tsconfig.json
+│  ├─ tsconfig.node.json
+│  ├─ vite.config.ts
+│  ├─ vitest.config.ts
+│  └─ vite-env.d.ts
+├─ ScaleSimulator/
+│  ├─ README.md
+│  ├─ requirements.txt
+│  └─ scale_simulator.py
+├─ balances.ini
+├─ install.bat
+├─ BalanceAgentService.sln
+├─ Planification___Industrial_Weighing_Dashboard.md
+├─ PROJECT_REPORT.md
+└─ README.md
+```
