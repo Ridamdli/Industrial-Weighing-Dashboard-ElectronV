@@ -1,0 +1,10 @@
+.amazonq
+.amazonq/*
+.venv
+.venv/*
+.qodo
+.qodo/*
+.vscode
+.vscode/*
+ai-rules 
+ai-rules/*
