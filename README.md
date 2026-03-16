@@ -56,7 +56,7 @@ The **Industrial Weighing System** is designed to bridge the gap between physica
 
 1. **Clone the repository**:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Ridamdli/Industrial-Weighing-Dashboard-ElectronV.git
    cd BalanceAgentService/balance-dashboard
    ```
 
