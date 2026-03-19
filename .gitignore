@@ -13,3 +13,4 @@ ai-rules/service_installation_system_context.md
 .qodo
 .vscode
 ai-rules 
+*.plantuml
