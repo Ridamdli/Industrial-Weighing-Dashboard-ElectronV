@@ -6,12 +6,19 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { cn } from '@/lib/utils'
 
 export function ServiceControl() {
-  const { serviceState, setServiceState } = useAppStore()
-  const [isPending, setIsPending] = useState(false)
+  const { serviceState, setServiceState, servicePendingAction, setServicePendingAction } = useAppStore()
   const [error, setError] = useState<string | null>(null)
 
   const handleAction = async (action: 'start' | 'stop' | 'restart') => {
-    setIsPending(true)
+    if (servicePendingAction) return // Block if already operating
+    
+    // Map the button action to the actual pending state
+    const actionToState = {
+      start: 'starting',
+      stop: 'stopping',
+      restart: 'restarting'
+    } as const
+    setServicePendingAction(actionToState[action])
     setError(null)
     try {
       let res
@@ -24,21 +31,22 @@ export function ServiceControl() {
       if (!res.success) {
         setError(res.error || 'Erreur inconnue')
       } else {
-        // Wait a moment then refresh status
-        setTimeout(async () => {
-          const statusRes = await balanceApi.service.status()
-          setServiceState(statusRes.state as Parameters<typeof setServiceState>[0])
-        }, 1500)
+        // Trigger an immediate manual status check to sync UI
+        const statusRes = await balanceApi.service.status()
+        const validStates = ['running', 'stopped', 'unknown'] as const
+        const newState = validStates.includes(statusRes.state) ? statusRes.state : 'unknown'
+        setServiceState(newState)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
-      setIsPending(false)
+      setServicePendingAction(null)
     }
   }
 
   const isRunning = serviceState === 'running'
   const isStopped = serviceState === 'stopped'
+  const isPending = servicePendingAction !== null
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -49,21 +57,29 @@ export function ServiceControl() {
         </p>
       </div>
 
-      <div className="bg-card border border-border rounded-xl p-6 space-y-6">
+      <div className="bg-card border border-border rounded-xl p-6 space-y-6 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-medium">État du service</h3>
             <p className="text-sm text-muted-foreground">État actuel du processus d'arrière-plan</p>
           </div>
-          <div className="text-lg">
-            <StatusBadge state={serviceState} className="px-4 py-2 border border-border rounded-full" />
+          <div className="flex items-center gap-3">
+             {isPending && (
+              <span className="text-sm font-medium text-primary animate-pulse flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                {servicePendingAction === 'starting' && 'Démarrage en cours...'}
+                {servicePendingAction === 'stopping' && 'Arrêt en cours...'}
+                {servicePendingAction === 'restarting' && 'Redémarrage...'}
+              </span>
+            )}
+            <StatusBadge state={serviceState} className={cn("px-4 py-2 border border-border rounded-full", isPending && "opacity-50")} />
           </div>
         </div>
 
         {error && (
           <div className="bg-destructive/10 text-destructive flex items-center gap-3 p-4 rounded-lg text-sm font-medium">
-            <AlertTriangle className="w-5 h-5" />
-            {error}
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            <span className="break-all">{error}</span>
           </div>
         )}
 
@@ -72,26 +88,28 @@ export function ServiceControl() {
             onClick={() => handleAction('start')}
             disabled={isPending || isRunning}
             className={cn(
-              "flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium transition-colors",
+              "flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium transition-colors border",
               isPending || isRunning 
-                ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50" 
-                : "bg-primary text-primary-foreground hover:bg-primary/90"
+                ? "bg-muted border-muted text-muted-foreground cursor-not-allowed opacity-50" 
+                : "bg-primary border-primary text-primary-foreground hover:bg-primary/90"
             )}
           >
-            <Play className="w-4 h-4" /> Démarrer
+            {servicePendingAction === 'starting' ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            Démarrer
           </button>
           
           <button
             onClick={() => handleAction('stop')}
             disabled={isPending || isStopped}
             className={cn(
-              "flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium transition-colors",
+              "flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium transition-colors border",
               isPending || isStopped
-                ? "bg-muted text-muted-foreground cursor-not-allowed opacity-50" 
-                : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                ? "bg-muted border-muted text-muted-foreground cursor-not-allowed opacity-50" 
+                : "bg-destructive border-destructive text-destructive-foreground hover:bg-destructive/90"
             )}
           >
-            <Square className="w-4 h-4" /> Arrêter
+            {servicePendingAction === 'stopping' ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Square className="w-4 h-4" />}
+            Arrêter
           </button>
           
           <button
@@ -100,11 +118,11 @@ export function ServiceControl() {
             className={cn(
               "flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium transition-colors border",
               isPending 
-                ? "bg-muted border-transparent text-muted-foreground cursor-not-allowed opacity-50" 
+                ? "bg-muted border-muted text-muted-foreground cursor-not-allowed opacity-50" 
                 : "bg-card border-border hover:bg-accent hover:text-accent-foreground align-middle"
             )}
           >
-            <RefreshCw className={cn("w-4 h-4", isPending && "animate-spin")} /> Redémarrer
+            <RefreshCw className={cn("w-4 h-4", servicePendingAction === 'restarting' && "animate-spin")} /> Redémarrer
           </button>
         </div>
       </div>

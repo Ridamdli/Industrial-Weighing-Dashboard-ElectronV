@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { HashRouter, Routes, Route, Link } from 'react-router-dom'
+import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
 import { Activity, Settings, HardDrive, FileText, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { StatusBadge } from './components/StatusBadge'
@@ -17,12 +17,12 @@ import { BalanceHistoryTable } from './renderer/components/BalanceHistoryTable'
 import './App.css'
 
 function Dashboard() {
-  const { error } = useWeightPolling(1000)
-  const serviceState = useAppStore(s => s.serviceState)
+  useWeightPolling(1000)
+  const { serviceState, apiStatus, apiError } = useAppStore()
   const logs = useAppStore(s => s.logs).slice(0, 5)
   
-  const isIdle = error != null && (error.includes('Inactif') || error.includes('attente'))
-  const isRealError = error != null && !isIdle
+  const isIdle = apiStatus === 'idle'
+  const isRealError = apiStatus === 'error' || apiStatus === 'disconnected' || serviceState !== 'running'
   
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -48,7 +48,7 @@ function Dashboard() {
             "text-green-500")}>
             {isRealError ? 'Erreur / Déconnectée' : isIdle ? 'En attente (Inactif)' : 'Connectée'}
           </span>
-          {error && <span className="text-xs text-muted-foreground truncate" title={error}>{error}</span>}
+          {apiError && <span className="text-xs text-muted-foreground truncate" title={apiError}>{apiError}</span>}
         </div>
         <div className="p-4 bg-card border rounded-lg flex flex-col gap-1 shadow-sm min-h-[100px] overflow-hidden">
           <span className="text-sm font-medium text-muted-foreground">Derniers Journaux</span>
@@ -65,7 +65,7 @@ function Dashboard() {
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
-          <WeightGauge error={error} />
+          <WeightGauge />
         </div>
         <div className="lg:col-span-2">
           <LiveWeightChart />
@@ -82,19 +82,50 @@ function Dashboard() {
 function Layout({ children }: { children: React.ReactNode }) {
   const serviceState = useAppStore(s => s.serviceState)
   const setServiceState = useAppStore(s => s.setServiceState)
+  const servicePendingAction = useAppStore(s => s.servicePendingAction)
+  const isSetupCompleted = useAppStore(s => s.isSetupCompleted)
+  const location = useLocation()
 
   useEffect(() => {
-      balanceApi.service.status().then((res) => setServiceState(res.state as Parameters<typeof setServiceState>[0]))
-    const timer = setInterval(() => {
-        balanceApi.service.status().then((res) => setServiceState(res.state as Parameters<typeof setServiceState>[0]))
-    }, 5000)
-    return () => clearInterval(timer)
-  }, [setServiceState])
+    let isActive = true
+    let timeoutId: NodeJS.Timeout | null = null
+
+    const checkStatus = async () => {
+      try {
+        const res = await balanceApi.service.status()
+        if (isActive && res && res.state) {
+          setServiceState(res.state as Parameters<typeof setServiceState>[0])
+        }
+      } catch (err) {
+        console.error('[Layout] Failed to fetch service status:', err)
+      } finally {
+        if (isActive) {
+          // Adaptive polling:
+          // Aggressively poll (1s) if a transition is occurring to update the UI instantly.
+          // Relax to 5s if idle simply to monitor health.
+          const delay = servicePendingAction ? 1000 : 5000
+          timeoutId = setTimeout(checkStatus, delay)
+        }
+      }
+    }
+
+    checkStatus()
+
+    return () => {
+      isActive = false
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }, [setServiceState, servicePendingAction])
+
+  if (!isSetupCompleted && location.pathname !== '/setup') {
+    return <Navigate to="/setup" replace />
+  }
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-64 border-r border-border bg-card flex flex-col hidden md:flex">
+      {isSetupCompleted && (
+        <aside className="w-64 border-r border-border bg-card flex flex-col hidden md:flex">
         <div className="h-14 flex items-center px-4 border-b border-border">
           <h2 className="font-semibold tracking-tight">Balance Dashboard</h2>
         </div>
@@ -119,7 +150,8 @@ function Layout({ children }: { children: React.ReactNode }) {
             <Wrench className="w-4 h-4" /> Assistant d'Installation
           </Link>
         </nav>
-      </aside>
+        </aside>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { CheckCircle2, ArrowRight, ArrowLeft, Play, Wrench, Network, Loader2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { balanceApi } from '../api/balanceApi'
+import { useAppStore } from '../store/appStore'
 import { cn } from '@/lib/utils'
 
-type StepId = 'welcome' | 'comport' | 'scaletest' | 'config' | 'launch' | 'finish'
+type StepId = 'welcome' | 'comport' | 'scaletest' | 'config' | 'save_config' | 'finish'
 
 type PortInfo = {
   path: string
@@ -16,11 +18,13 @@ const STEPS: { id: StepId; label: string }[] = [
   { id: 'comport', label: '1. Port COM' },
   { id: 'scaletest', label: '2. Test Balance' },
   { id: 'config', label: '3. Configurations' },
-  { id: 'launch', label: '4. Démarrage' },
+  { id: 'save_config', label: '4. Sauvegarde' },
   { id: 'finish', label: '5. Terminé' },
 ]
 
 export function SetupWizard() {
+  const navigate = useNavigate()
+  const setSetupCompleted = useAppStore(s => s.setSetupCompleted)
   const [step, setStep] = useState<StepId>('welcome')
   const [ports, setPorts] = useState<PortInfo[]>([])
   const [loadingPorts, setLoadingPorts] = useState(false)
@@ -30,9 +34,6 @@ export function SetupWizard() {
   const [apiPort, setApiPort] = useState('5001')
   const [configPath, setConfigPath] = useState('')
   const [saving, setSaving] = useState(false)
-  const [installing, setInstalling] = useState(false)
-  const [launching, setLaunching] = useState(false)
-  const [launchDone, setLaunchDone] = useState(false)
   const [serviceMissing, setServiceMissing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [availableIps, setAvailableIps] = useState<string[]>([])
@@ -79,23 +80,23 @@ export function SetupWizard() {
 
   const handleInstall = async () => {
     setError(null)
-    setInstalling(true)
+    setSaving(true) // Reusing saving flag for generic operation loading
     try {
       const res = await balanceApi.service.install()
       if (res.success) {
         setServiceMissing(false)
-        handleSaveAndLaunch()
+        await handleSaveConfig()
       } else {
         setError(res.error || "L'installation a échoué.")
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
-      setInstalling(false)
+      setSaving(false)
     }
   }
 
-  const handleSaveAndLaunch = async () => {
+  const handleSaveConfig = async (): Promise<boolean> => {
     setError(null)
     setSaving(true)
     try {
@@ -110,38 +111,17 @@ export function SetupWizard() {
       const result = writeRes as unknown as { success: boolean; error?: string }
       if (!result.success) {
         setError(result.error || 'Erreur de sauvegarde de configuration.')
-        setSaving(false)
-        return
+        return false
       }
+      
+      // Save successful. No restart. Move to finish.
+      setStep('finish')
+      return true
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
-      setSaving(false)
-      return
-    }
-    setSaving(false)
-
-    // Now restart the service to apply changes
-    setLaunching(true)
-    try {
-      const res = await balanceApi.service.restart()
-      if (res.success) {
-        setLaunchDone(true)
-        setStep('finish')
-      } else {
-        // If error contains "not found" or similar, maybe it's not installed
-        if (res.error?.toLowerCase().includes('service not found') || 
-            res.error?.toLowerCase().includes('n\'existe pas') ||
-            res.error?.toLowerCase().includes('specified service does not exist')) {
-          setServiceMissing(true)
-          setError("Le service n'est pas installé sur cette machine.")
-        } else {
-          setError(res.error || "Échec du démarrage/redémarrage du service.")
-        }
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      return false
     } finally {
-      setLaunching(false)
+      setSaving(false)
     }
   }
 
@@ -363,9 +343,9 @@ export function SetupWizard() {
           </div>
         )}
 
-        {step === 'launch' && (
+        {step === 'save_config' && (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold">Démarrage du Service</h2>
+            <h2 className="text-xl font-semibold">Sauvegarde de la Configuration</h2>
 
             {error && (
               <div className="p-4 bg-destructive/10 text-destructive rounded-lg text-sm font-medium">
@@ -373,49 +353,36 @@ export function SetupWizard() {
               </div>
             )}
 
-            {launchDone ? (
-              <div className="flex flex-col items-center gap-4 py-8 text-center">
-                <CheckCircle2 className="w-16 h-16 text-green-500" />
-                <div>
-                  <h3 className="text-xl font-bold text-green-600 dark:text-green-400">Service démarré avec succès !</h3>
-                  <p className="text-muted-foreground mt-2">
-                    Le service BalanceAgentService est en cours d'exécution.<br />
-                    Vous pouvez maintenant aller sur le Tableau de Bord.
-                  </p>
-                </div>
+            <div className="space-y-4">
+              <p className="text-muted-foreground">
+                La configuration sera sauvegardée dans <code className="bg-muted px-1 rounded">balances.ini</code>. Le service ne sera <strong>pas</strong> redémarré automatiquement.
+              </p>
+              <div className="p-4 bg-muted/50 rounded-lg border border-border text-sm space-y-1">
+                <div><span className="text-muted-foreground">Port COM:</span> <span className="font-mono font-bold">{selectedPort || '(non défini)'}</span></div>
+                <div><span className="text-muted-foreground">Baud Rate:</span> <span className="font-mono">{baudRate}</span></div>
+                <div><span className="text-muted-foreground">Hôte API:</span> <span className="font-mono">{apiHost}:{apiPort}</span></div>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <p className="text-muted-foreground">
-                  La configuration sera sauvegardée dans <code className="bg-muted px-1 rounded">balances.ini</code> puis le service sera démarré automatiquement.
-                </p>
-                <div className="p-4 bg-muted/50 rounded-lg border border-border text-sm space-y-1">
-                  <div><span className="text-muted-foreground">Port COM:</span> <span className="font-mono font-bold">{selectedPort || '(non défini)'}</span></div>
-                  <div><span className="text-muted-foreground">Baud Rate:</span> <span className="font-mono">{baudRate}</span></div>
-                  <div><span className="text-muted-foreground">Hôte API:</span> <span className="font-mono">{apiHost}:{apiPort}</span></div>
-                </div>
 
-                {serviceMissing ? (
-                  <button
-                    onClick={handleInstall}
-                    disabled={installing}
-                    className="flex items-center gap-2 px-6 py-3 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors font-medium shadow-sm w-full sm:w-auto"
-                  >
-                    <Wrench className={cn("w-4 h-4", installing && "animate-spin")} />
-                    {installing ? 'Installation...' : 'Installer le Service Windows'}
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSaveAndLaunch}
-                    disabled={saving || launching}
-                    className="flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium shadow-sm w-full sm:w-auto"
-                  >
-                    <Play className={cn("w-4 h-4", (saving || launching) && "animate-pulse")} />
-                    {saving ? 'Sauvegarde...' : launching ? 'Démarrage...' : 'Sauvegarder et Démarrer'}
-                  </button>
-                )}
-              </div>
-            )}
+              {serviceMissing ? (
+                <button
+                  onClick={handleInstall}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-6 py-3 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors font-medium shadow-sm w-full sm:w-auto"
+                >
+                  <Wrench className={cn("w-4 h-4", saving && "animate-spin")} />
+                  {saving ? 'Installation...' : 'Installer le Service Windows'}
+                </button>
+              ) : (
+                <button
+                  onClick={handleSaveConfig}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium shadow-sm w-full sm:w-auto"
+                >
+                  <Play className={cn("w-4 h-4", saving && "animate-pulse")} />
+                  {saving ? 'Sauvegarde...' : 'Sauvegarder et Terminer'}
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -428,7 +395,7 @@ export function SetupWizard() {
                 <h3 className="text-xl font-bold text-green-600 dark:text-green-400">Prêt à l'emploi !</h3>
                 <p className="text-muted-foreground mt-2">
                   L'assistant a terminé la configuration du service.<br />
-                  Vous pouvez retourner au Dashboard.
+                  Vous pouvez retourner au Dashboard et démarrer le service manuellement.
                 </p>
               </div>
             </div>
@@ -451,7 +418,7 @@ export function SetupWizard() {
           <ArrowLeft className="w-4 h-4" /> Précédent
         </button>
 
-        {step !== 'launch' && step !== 'finish' && (
+        {step !== 'save_config' && step !== 'finish' && (
           <button
             onClick={goNext}
             disabled={(step === 'comport' && !selectedPort)}
@@ -465,7 +432,10 @@ export function SetupWizard() {
         )}
         {step === 'finish' && (
           <button
-            onClick={() => window.location.hash = '#/'}
+            onClick={() => {
+              setSetupCompleted(true)
+              navigate('/', { replace: true })
+            }}
             className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium"
           >
             Aller au Dashboard <ArrowRight className="w-4 h-4" />

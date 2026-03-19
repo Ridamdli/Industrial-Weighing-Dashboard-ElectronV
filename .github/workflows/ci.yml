@@ -18,7 +18,7 @@ jobs:
     name: Build & Test Dashboard
     runs-on: windows-latest
     # Only run when the Electron dashboard has been scaffolded (Phase 1)
-    if: hashFiles('balance-dashboard/package.json') != ''
+    if: ${{ hashFiles('balance-dashboard/package.json') != '' }}
 
     steps:
       - name: Checkout

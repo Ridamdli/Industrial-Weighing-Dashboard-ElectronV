@@ -13,14 +13,16 @@ export function LiveWeightChart() {
   const { weight, timestamp, serviceState } = useAppStore()
   const [data, setData] = useState<ChartDataPoint[]>([])
 
+  const MAX_DATA_POINTS = 100
+
   useEffect(() => {
     if (serviceState !== 'running' || timestamp === null) return
 
     setData(prev => {
       const now = new Date(timestamp).getTime()
-      // Keep last 60 data points (approx 60 seconds if polling at 1Hz)
+      // Keep last MAX_DATA_POINTS data points (historique)
       const newData = [...prev, { time: now, weight }]
-      if (newData.length > 60) newData.shift()
+      if (newData.length > MAX_DATA_POINTS) newData.shift()
       return newData
     })
   }, [weight, timestamp, serviceState])
@@ -31,7 +33,7 @@ export function LiveWeightChart() {
 
   return (
     <div className="h-[300px] w-full p-4 border border-border rounded-xl bg-card flex flex-col">
-      <h3 className="text-sm font-medium text-muted-foreground mb-2 shrink-0">Historique des pesées (60s)</h3>
+      <h3 className="text-sm font-medium text-muted-foreground mb-2 shrink-0">Historique des pesées ({MAX_DATA_POINTS}s)</h3>
       <ResponsiveContainer width="100%" height={236}>
         <LineChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />

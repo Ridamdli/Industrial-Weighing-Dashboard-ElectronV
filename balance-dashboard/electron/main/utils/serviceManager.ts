@@ -7,6 +7,9 @@ export type ServiceState = 'running' | 'stopped' | 'unknown'
 
 const DEFAULT_CANDIDATE_NAMES = ['BalanceAgentService', 'BalenceAgentService'] as const
 
+// Mutex to prevent overlapping operations
+let isOperating = false
+
 function parseScQueryState(stdout: string): ServiceState {
   // Example line: "        STATE              : 4  RUNNING"
   const m = stdout.match(/STATE\s*:\s*\d+\s+(\w+)/i)
@@ -47,16 +50,35 @@ export async function getServiceStatus(serviceName?: string): Promise<{ name?: s
   return { name, state: parseScQueryState(res.stdout) }
 }
 
-export async function startService(serviceName?: string): Promise<{ success: boolean; error?: string; name?: string }> {
+export async function startService(serviceName?: string, options: { bypassLock?: boolean } = {}): Promise<{ success: boolean; error?: string; name?: string }> {
+  const { bypassLock = false } = options
+  if (!bypassLock && isOperating) return { success: false, error: 'Une opération est déjà en cours. Veuillez patienter.' }
+  
   const name = serviceName ?? (await detectServiceName())
-  if (!name) return { success: false, error: 'Service not found' }
+  if (!name) return { success: false, error: 'Service introuvable.' }
 
+  if (!bypassLock) isOperating = true
   try {
+    const current = await getServiceStatus(name)
+    if (current.state === 'running') {
+      return { success: true, name }
+    }
+
     await sudoExec(`sc.exe start "${name}"\r\n`, 20_000)
+    
+    // Briefly poll to confirm it actually started
+    for (let i = 0; i < 5; i++) {
+        await new Promise(r => setTimeout(r, 1000))
+        const status = await getServiceStatus(name)
+        if (status.state === 'running') break
+    }
+
     return { success: true, name }
   } catch (err: unknown) {
     const e = err as { message?: string }
     return { success: false, name, error: e.message || String(err) }
+  } finally {
+    if (!bypassLock) isOperating = false
   }
 }
 
@@ -68,76 +90,126 @@ function parseServicePid(stdout: string): number | null {
   return pid && pid > 0 ? pid : null
 }
 
-export async function stopService(serviceName?: string): Promise<{ success: boolean; error?: string; name?: string }> {
+export async function stopService(serviceName?: string, bypassLock = false): Promise<{ success: boolean; error?: string; name?: string }> {
+  // If bypassLock is true, we assume the caller (like restartService) already holds the lock
+  if (!bypassLock && isOperating) return { success: false, error: 'Une opération est déjà en cours. Veuillez patienter.' }
+
   const name = serviceName ?? (await detectServiceName())
-  if (!name) return { success: false, error: 'Service not found' }
+  if (!name) return { success: false, error: 'Service introuvable.' }
 
-  // Step 1: Get PID before we touch anything
-  const queryEx = await execFileAsync('sc.exe', ['queryex', name], { timeoutMs: 10_000 })
-  const pid = parseServicePid(queryEx.stdout)
+  if (!bypassLock) isOperating = true
+  try {
+    const currentStatus = await getServiceStatus(name)
+    if (currentStatus.state === 'stopped') {
+      return { success: true, name } // Early exit
+    }
 
-  // Step 2: Disable auto-restart so if we later need to kill, Windows won't restart it
-  // This is a fast operation (<1s)
-  await sudoExec(
-    `sc.exe failure "${name}" reset= 0 actions= ""\r\n`,
-    8_000
-  ).catch(() => {}) // Ignore if this fails (maybe already stopped)
+    // Step 1: Get PID before we touch anything
+    const queryEx = await execFileAsync('sc.exe', ['queryex', name], { timeoutMs: 10_000 })
+    const pid = parseServicePid(queryEx.stdout)
 
-  // Step 3: Send graceful stop signal WITH elevation + wait up to 60 seconds
-  // This matches how services.msc works (it also waits indefinitely)
-  const stopScript =
-    `sc.exe stop "${name}"\r\n` +
-    `$waited = 0\r\n` +
-    `while ($waited -lt 60) {\r\n` +
-    `  Start-Sleep -Seconds 1\r\n` +
-    `  $waited++\r\n` +
-    `  $state = (sc.exe query "${name}" | Select-String "STATE").ToString()\r\n` +
-    `  if ($state -match "STOPPED") { break }\r\n` +
-    `}\r\n`
+    // Single comprehensive stop script (1 UAC Prompt)
+    // 1. Reset failure actions
+    // 2. Send stop command
+    // 3. Wait gracefully
+    // 4. Force kill if timed out
+    // 5. Restore failure actions
+    const stopScript =
+      `sc.exe failure "${name}" reset= 0 actions= ""\r\n` +
+      `sc.exe stop "${name}"\r\n` +
+      `$waited = 0\r\n` +
+      `$stopped = $false\r\n` +
+      `while ($waited -lt 15) {\r\n` +
+      `  Start-Sleep -Seconds 1\r\n` +
+      `  $waited++\r\n` +
+      `  $state = (sc.exe query "${name}" | Select-String "STATE").ToString()\r\n` +
+      `  if ($state -match "STOPPED") { $stopped = $true; break }\r\n` +
+      `}\r\n` +
+      `if (-not $stopped) {\r\n` +
+      (pid ? `  Stop-Process -Id ${pid} -Force -ErrorAction SilentlyContinue\r\n` : '') +
+      `  Get-Process -Name "BalanceAgentService" -ErrorAction SilentlyContinue | Stop-Process -Force\r\n` +
+      `  Get-Process -Name "BalenceAgentService" -ErrorAction SilentlyContinue | Stop-Process -Force\r\n` +
+      `}\r\n` +
+      `sc.exe failure "${name}" reset= 86400 actions= restart/5000/restart/5000/restart/5000\r\n`
 
-  await sudoExec(stopScript, 75_000).catch(() => {})
-
-  // Step 4: Check if it actually stopped
-  const afterStop = await getServiceStatus(name)
-  if (afterStop.state === 'stopped') {
-    // Re-enable auto-restart now that we stopped gracefully
-    await sudoExec(
-      `sc.exe failure "${name}" reset= 86400 actions= restart/5000/restart/5000/restart/5000\r\n`,
-      8_000
-    ).catch(() => {})
+    try {
+      await sudoExec(stopScript, 30_000)
+    } catch (scriptErr) {
+      console.error('[stopService] Stop script failed:', scriptErr)
+      // Still check if service actually stopped despite script error
+      const finalStatus = await getServiceStatus(name)
+      if (finalStatus.state !== 'stopped') {
+        const e = scriptErr as { message?: string }
+        return { success: false, name, error: e.message || String(scriptErr) }
+      }
+    }
     return { success: true, name }
+  } catch (err: unknown) {
+    const e = err as { message?: string }
+    return { success: false, name, error: e.message || String(err) }
+  } finally {
+    if (!bypassLock) isOperating = false
   }
-
-  // Step 5: Graceful stop timed out — force kill by PID (restart is already disabled)
-  if (pid) {
-    await sudoExec(
-      `Stop-Process -Id ${pid} -Force -ErrorAction SilentlyContinue\r\n` +
-      `Get-Process -Name "BalanceAgentService" -ErrorAction SilentlyContinue | Stop-Process -Force\r\n` +
-      `Get-Process -Name "BalenceAgentService" -ErrorAction SilentlyContinue | Stop-Process -Force\r\n`,
-      10_000
-    ).catch(() => {})
-  }
-
-  // Restore restart policy
-  await sudoExec(
-    `sc.exe failure "${name}" reset= 86400 actions= restart/5000/restart/5000/restart/5000\r\n`,
-    8_000
-  ).catch(() => {})
-
-  return { success: true, name }
 }
 
 export async function restartService(serviceName?: string): Promise<{ success: boolean; error?: string; name?: string }> {
+  if (isOperating) return { success: false, error: 'Une opération est déjà en cours. Veuillez patienter.' }
+
   const name = serviceName ?? (await detectServiceName())
-  if (!name) return { success: false, error: 'Service not found' }
+  if (!name) return { success: false, error: 'Service introuvable.' }
 
-  const stop = await stopService(name)
-  if (!stop.success) return stop
+  isOperating = true
+  try {
+    const status = await getServiceStatus(name)
+    
+    // Only stop if it's actually running
+    if (status.state === 'running' || status.state === 'unknown') {
+      // Step 1: Get PID before we touch anything
+      const queryEx = await execFileAsync('sc.exe', ['queryex', name], { timeoutMs: 10_000 })
+      const pid = parseServicePid(queryEx.stdout)
 
-  const start = await startService(name)
-  if (!start.success) return start
+      // Single comprehensive restart script (1 UAC Prompt)
+      const restartScript =
+        `sc.exe failure "${name}" reset= 0 actions= ""\r\n` +
+        `sc.exe stop "${name}"\r\n` +
+        `$waited = 0\r\n` +
+        `$stopped = $false\r\n` +
+        `while ($waited -lt 15) {\r\n` +
+        `  Start-Sleep -Seconds 1\r\n` +
+        `  $waited++\r\n` +
+        `  $state = (sc.exe query "${name}" | Select-String "STATE").ToString()\r\n` +
+        `  if ($state -match "STOPPED") { $stopped = $true; break }\r\n` +
+        `}\r\n` +
+        `if (-not $stopped) {\r\n` +
+        (pid ? `  Stop-Process -Id ${pid} -Force -ErrorAction SilentlyContinue\r\n` : '') +
+        `  Get-Process -Name "BalanceAgentService" -ErrorAction SilentlyContinue | Stop-Process -Force\r\n` +
+        `  Get-Process -Name "BalenceAgentService" -ErrorAction SilentlyContinue | Stop-Process -Force\r\n` +
+        `}\r\n` +
+        `sc.exe failure "${name}" reset= 86400 actions= restart/5000/restart/5000/restart/5000\r\n` +
+        `Start-Sleep -Seconds 1\r\n` +
+        `sc.exe start "${name}"\r\n`
 
-  return { success: true, name }
+      await sudoExec(restartScript, 40_000)
+
+      // Briefly poll to confirm it actually restarted
+      for (let i = 0; i < 5; i++) {
+          await new Promise(r => setTimeout(r, 1000))
+          const current = await getServiceStatus(name)
+          if (current.state === 'running') break
+      }
+    } else {
+      // If stopped, just start it natively (1 UAC Prompt)
+      const start = await startService(name, { bypassLock: true })
+      if (!start.success) return start
+    }
+
+    return { success: true, name }
+  } catch (err: unknown) {
+    const e = err as { message?: string }
+    return { success: false, name, error: e.message || String(err) }
+  } finally {
+    isOperating = false
+  }
 }
 
 export async function installService(): Promise<{ success: boolean; error?: string }> {

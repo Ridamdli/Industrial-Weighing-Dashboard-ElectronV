@@ -1,12 +1,12 @@
 import { useAppStore } from '@/renderer/store/appStore'
 import { cn } from '@/lib/utils'
 
-export function WeightGauge({ error }: { error: string | null }) {
-  const { weight, unit, serviceState } = useAppStore()
+export function WeightGauge() {
+  const { weight, unit, serviceState, apiStatus, apiError } = useAppStore()
 
   const isRunning = serviceState === 'running'
-  const isIdle = !!error && (error.includes('Inactif') || error.includes('attente'))
-  const isRealError = (!!error && !isIdle) || !isRunning
+  const isIdle = apiStatus === 'idle'
+  const isRealError = apiStatus === 'error' || apiStatus === 'disconnected' || !isRunning
 
   return (
     <div className={cn(
@@ -40,12 +40,12 @@ export function WeightGauge({ error }: { error: string | null }) {
 
       {isIdle && isRunning && (
         <div className="mt-4 text-sm text-amber-600 font-medium bg-amber-100/50 px-3 py-1 rounded-md">
-          {error}
+          {apiError || 'En attente...'}
         </div>
       )}
-      {isRealError && error && isRunning && (
+      {isRealError && apiError && isRunning && (
         <div className="mt-4 text-sm text-destructive font-medium bg-destructive/10 px-3 py-1 rounded-md">
-          {error}
+          {apiError}
         </div>
       )}
       {!isRunning && (

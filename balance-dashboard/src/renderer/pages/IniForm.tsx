@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Save, AlertTriangle, CheckCircle2, Network, Loader2, RefreshCw } from 'lucide-react'
+import { Save, AlertTriangle, CheckCircle2, Network, Loader2, RefreshCw, Wrench } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { balanceApi } from '../api/balanceApi'
 import { AppUpdater } from '../components/AppUpdater'
 import { cn } from '@/lib/utils'
 
 export function IniForm() {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
@@ -64,7 +66,7 @@ export function IniForm() {
       if (res && res.data) {
         const raw = res.data as Record<string, Record<string, unknown>>
         setConfigPath(res.path)
-        setConfig({
+        const newConfig = {
           api_host: String(raw.api?.host ?? 'localhost'),
           api_port: String(raw.api?.port ?? '5001'),
           balance_com_port: String(raw.Balance1?.PortCom ?? ''),
@@ -75,7 +77,8 @@ export function IniForm() {
           balance_timeout: String(raw.Balance1?.Timeout ?? '5000'),
           balance_unite: String(raw.Balance1?.Unite ?? 'kg'),
           balance_decimales: String(raw.Balance1?.Decimales ?? '2')
-        })
+        }
+        setConfig(newConfig)
       } else {
         setMessage({ type: 'error', text: 'Impossible de lire la configuration.' })
       }
@@ -121,13 +124,7 @@ export function IniForm() {
 
       const res = await balanceApi.config.write(payload)
       if (res.success) {
-        setMessage({ type: 'success', text: 'Configuration sauvegardée. Redémarrage du service en cours...' })
-        const restartRes = await balanceApi.service.restart()
-        if (restartRes.success) {
-          setMessage({ type: 'success', text: 'Configuration sauvegardée et service redémarré avec succès.' })
-        } else {
-          setMessage({ type: 'error', text: 'Configuration sauvegardée, mais échec du redémarrage du service : ' + (restartRes.error || '') })
-        }
+        setMessage({ type: 'success', text: 'Configuration sauvegardée avec succès. Veuillez redémarrer le service manuellement si nécessaire.' })
       } else {
         setMessage({ type: 'error', text: res.error || 'Erreur lors de la sauvegarde.' })
       }
@@ -182,11 +179,19 @@ export function IniForm() {
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Configuration</h1>
-        <p className="text-muted-foreground mt-2">
-          Gérer les paramètres du service et la connexion à la balance (balances.ini).
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Configuration</h1>
+          <p className="text-muted-foreground mt-2 max-w-xl">
+            Gérer les paramètres du service et la connexion à la balance (balances.ini).
+          </p>
+        </div>
+        <button
+          onClick={() => navigate('/setup')}
+          className="flex items-center gap-2 px-4 py-2 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground rounded-lg transition-colors font-medium text-sm border border-primary/20"
+        >
+          <Wrench className="w-4 h-4" /> Assistant de configuration
+        </button>
       </div>
 
       <form onSubmit={handleSave} className="bg-card border border-border rounded-xl p-6 space-y-8 shadow-sm">

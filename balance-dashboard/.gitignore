@@ -33,15 +33,10 @@ yarn.lock
 
 # folders
 ../.amazonq
-../.amazonq/*
 ../.venv
-../.venv/*
 ../.qodo
-../.qodo/*
 ../.vscode
-../.vscode/*
 ../ai-rules 
-../ai-rules/*
 
 # ../*.md
 ../Plan_v1___Electron_to_Tauri_Migration.md

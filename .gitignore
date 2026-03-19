@@ -1,0 +1,15 @@
+PROJECT_REPORT.md
+CONTEXT.md
+Plan_v1___Electron_to_Tauri_Migration.md
+.amazonq/rules/memory-bank/guidelines.md
+.amazonq/rules/memory-bank/product.md
+.amazonq/rules/memory-bank/structure.md
+.amazonq/rules/memory-bank/tech.md
+ai-rules/agent_rules.md
+ai-rules/service_installation_system_context.md
+# folders
+.amazonq
+.venv
+.qodo
+.vscode
+ai-rules 
